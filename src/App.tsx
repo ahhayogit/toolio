@@ -1,0 +1,124 @@
+import { useMemo, useRef, useState } from 'react'
+import { useStore } from './store'
+import { downloadJson, parseJsonFile } from './lib/io'
+import { findIssues } from './lib/validate'
+import { Button } from './components/ui'
+import { NpcsTab } from './components/NpcsTab'
+import { EnemiesTab } from './components/EnemiesTab'
+import { AreasTab } from './components/AreasTab'
+import { QuestsTab } from './components/QuestsTab'
+
+type Tab = 'npcs' | 'enemies' | 'areas' | 'quests'
+
+export default function App() {
+  const [tab, setTab] = useState<Tab>('npcs')
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  const npcs = useStore((s) => s.npcs)
+  const enemies = useStore((s) => s.enemies)
+  const areas = useStore((s) => s.areas)
+  const quests = useStore((s) => s.quests)
+  const exportData = useStore((s) => s.exportData)
+  const loadData = useStore((s) => s.loadData)
+  const resetAll = useStore((s) => s.resetAll)
+
+  const issues = useMemo(
+    () => findIssues({ version: 1, npcs, enemies, areas, quests }),
+    [npcs, enemies, areas, quests],
+  )
+
+  const handleExport = () => downloadJson(exportData())
+
+  const handleImport = async (file: File) => {
+    try {
+      const data = await parseJsonFile(file)
+      loadData(data)
+      alert('JSON başarıyla yüklendi.')
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Dosya okunamadı.')
+    }
+  }
+
+  const tabs: { key: Tab; label: string; count: number }[] = [
+    { key: 'npcs', label: 'NPC', count: npcs.length },
+    { key: 'enemies', label: 'Düşman', count: enemies.length },
+    { key: 'areas', label: 'Bölge', count: areas.length },
+    { key: 'quests', label: 'Görev', count: quests.length },
+  ]
+
+  return (
+    <div className="mx-auto flex min-h-full max-w-2xl flex-col">
+      {/* Üst bar */}
+      <header className="sticky top-0 z-10 flex flex-wrap items-center gap-2 border-b border-slate-800 bg-slate-950/90 px-4 py-3 backdrop-blur">
+        <h1 className="mr-auto text-lg font-bold tracking-tight">
+          Toolio <span className="text-sky-400">RPG</span>
+        </h1>
+        <input
+          ref={fileRef}
+          type="file"
+          accept="application/json,.json"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0]
+            if (file) handleImport(file)
+            e.target.value = ''
+          }}
+        />
+        <Button onClick={() => fileRef.current?.click()}>JSON Aç</Button>
+        <Button variant="primary" onClick={handleExport}>
+          JSON Kaydet
+        </Button>
+        <Button
+          variant="danger"
+          onClick={() => {
+            if (confirm('Tüm veriler silinsin mi? Bu geri alınamaz.')) resetAll()
+          }}
+        >
+          Temizle
+        </Button>
+      </header>
+
+      {/* Sekmeler */}
+      <nav className="flex border-b border-slate-800 px-2">
+        {tabs.map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            className={`flex-1 border-b-2 px-2 py-3 text-sm font-medium transition-colors ${
+              tab === t.key
+                ? 'border-sky-400 text-sky-400'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            {t.label} <span className="text-xs opacity-70">({t.count})</span>
+          </button>
+        ))}
+      </nav>
+
+      {/* Kırık referans uyarıları */}
+      {issues.length > 0 && (
+        <div className="mx-4 mt-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
+          <strong>{issues.length} uyarı:</strong>
+          <ul className="mt-1 list-inside list-disc">
+            {issues.slice(0, 5).map((iss, i) => (
+              <li key={i}>{iss.message}</li>
+            ))}
+            {issues.length > 5 && <li>… ve {issues.length - 5} tane daha</li>}
+          </ul>
+        </div>
+      )}
+
+      {/* İçerik */}
+      <main className="flex-1 px-4 py-4">
+        {tab === 'npcs' && <NpcsTab />}
+        {tab === 'enemies' && <EnemiesTab />}
+        {tab === 'areas' && <AreasTab />}
+        {tab === 'quests' && <QuestsTab />}
+      </main>
+
+      <footer className="px-4 py-4 text-center text-xs text-slate-600">
+        Veriler tarayıcında otomatik saklanır · JSON ile yedekle/aktar
+      </footer>
+    </div>
+  )
+}
