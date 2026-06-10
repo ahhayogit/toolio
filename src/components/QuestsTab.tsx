@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useStore } from '../store'
 import { newId } from '../lib/id'
 import {
+  ITEM_SLOT_LABELS,
   QUEST_TYPES,
   QUEST_TYPE_LABELS,
   type Objective,
@@ -9,7 +10,16 @@ import {
   type QuestType,
   defaultObjective,
 } from '../types/model'
-import { Button, EmptyState, Field, Modal, NumberInput, Select, TextInput } from './ui'
+import {
+  Button,
+  Combobox,
+  EmptyState,
+  Field,
+  Modal,
+  NumberInput,
+  Select,
+  TextInput,
+} from './ui'
 
 export function QuestsTab() {
   const quests = useStore((s) => s.quests)
@@ -64,7 +74,7 @@ export function QuestsTab() {
 
 function QuestForm({ initial, onClose }: { initial: Quest | null; onClose: () => void }) {
   const npcs = useStore((s) => s.npcs)
-  const enemies = useStore((s) => s.enemies)
+  const items = useStore((s) => s.items)
   const quests = useStore((s) => s.quests)
   const addQuest = useStore((s) => s.addQuest)
   const updateQuest = useStore((s) => s.updateQuest)
@@ -77,7 +87,7 @@ function QuestForm({ initial, onClose }: { initial: Quest | null; onClose: () =>
     initial?.dependsOnQuestId ?? '',
   )
   const [rewardExp, setRewardExp] = useState(initial?.rewardExp ?? 0)
-  const [rewardItem, setRewardItem] = useState(initial?.rewardItem ?? '')
+  const [rewardItemId, setRewardItemId] = useState<string | null>(initial?.rewardItemId ?? null)
   const [objective, setObjective] = useState<Objective>(
     initial?.objective ?? defaultObjective('TALK_TO_NPC'),
   )
@@ -97,7 +107,7 @@ function QuestForm({ initial, onClose }: { initial: Quest | null; onClose: () =>
       requiredLevel,
       dependsOnQuestId: dependsOnQuestId || null,
       rewardExp,
-      rewardItem: rewardItem.trim(),
+      rewardItemId,
       objective,
     }
     if (initial) updateQuest(quest)
@@ -147,11 +157,19 @@ function QuestForm({ initial, onClose }: { initial: Quest | null; onClose: () =>
           </Field>
         </div>
 
-        <Field label="Ödül item">
-          <TextInput
-            value={rewardItem}
-            onChange={(e) => setRewardItem(e.target.value)}
-            placeholder="Örn: İksir x3 (boş bırakılabilir)"
+        <Field label="Ödül item" hint="Item'lar 'Item' sekmesinden eklenir. Boş bırakılabilir.">
+          <Combobox
+            value={rewardItemId}
+            onChange={setRewardItemId}
+            options={items.map((it) => ({
+              value: it.id,
+              label: it.name,
+              hint: ITEM_SLOT_LABELS[it.slot],
+            }))}
+            placeholder="— ödül item yok —"
+            noneLabel="— ödül item yok —"
+            searchPlaceholder="Item ara..."
+            emptyText="Item bulunamadı"
           />
         </Field>
 

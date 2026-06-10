@@ -4,6 +4,7 @@ import {
   type Area,
   type Enemy,
   type GameData,
+  type Item,
   type Npc,
   type Quest,
   emptyGameData,
@@ -22,6 +23,10 @@ interface Actions {
   addArea: (area: Area) => void
   updateArea: (area: Area) => void
   deleteArea: (id: string) => void
+  // Item
+  addItem: (item: Item) => void
+  updateItem: (item: Item) => void
+  deleteItem: (id: string) => void
   // Quest
   addQuest: (quest: Quest) => void
   updateQuest: (quest: Quest) => void
@@ -54,6 +59,11 @@ export const useStore = create<Store>()(
         set((s) => ({ areas: s.areas.map((a) => (a.id === area.id ? area : a)) })),
       deleteArea: (id) => set((s) => ({ areas: s.areas.filter((a) => a.id !== id) })),
 
+      addItem: (item) => set((s) => ({ items: [...s.items, item] })),
+      updateItem: (item) =>
+        set((s) => ({ items: s.items.map((i) => (i.id === item.id ? item : i)) })),
+      deleteItem: (id) => set((s) => ({ items: s.items.filter((i) => i.id !== id) })),
+
       addQuest: (quest) => set((s) => ({ quests: [...s.quests, quest] })),
       updateQuest: (quest) =>
         set((s) => ({ quests: s.quests.map((q) => (q.id === quest.id ? quest : q)) })),
@@ -71,11 +81,12 @@ export const useStore = create<Store>()(
           npcs: data.npcs,
           enemies: data.enemies,
           areas: data.areas,
+          items: data.items,
           quests: data.quests,
         }),
       exportData: () => {
-        const { version, npcs, enemies, areas, quests } = get()
-        return { version, npcs, enemies, areas, quests }
+        const { version, npcs, enemies, areas, items, quests } = get()
+        return { version, npcs, enemies, areas, items, quests }
       },
       resetAll: () => set(emptyGameData()),
     }),
@@ -87,6 +98,7 @@ export const useStore = create<Store>()(
         npcs: s.npcs,
         enemies: s.enemies,
         areas: s.areas,
+        items: s.items,
         quests: s.quests,
       }),
     },

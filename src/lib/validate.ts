@@ -14,6 +14,7 @@ export function findIssues(data: GameData): Issue[] {
   const npcIds = new Set(data.npcs.map((n) => n.id))
   const enemyIds = new Set(data.enemies.map((e) => e.id))
   const areaIds = new Set(data.areas.map((a) => a.id))
+  const itemIds = new Set(data.items.map((i) => i.id))
   const questIds = new Set(data.quests.map((q) => q.id))
 
   for (const q of data.quests) {
@@ -23,6 +24,9 @@ export function findIssues(data: GameData): Issue[] {
     }
     if (q.dependsOnQuestId && !questIds.has(q.dependsOnQuestId)) {
       issues.push({ questId: q.id, message: `"${label}" bağımlı olduğu görev bulunamadı` })
+    }
+    if (q.rewardItemId && !itemIds.has(q.rewardItemId)) {
+      issues.push({ questId: q.id, message: `"${label}" ödül item'ı tanımlı değil` })
     }
     if (q.objective.type === 'TALK_TO_NPC' && !npcIds.has(q.objective.targetNpcId)) {
       issues.push({ questId: q.id, message: `"${label}" hedef NPC tanımlı değil` })

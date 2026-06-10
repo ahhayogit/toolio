@@ -71,6 +71,30 @@ export const areaSchema = z.object({
 export type Area = z.infer<typeof areaSchema>
 
 /* ----------------------------------------------------------------------------
+ * Item (giyilebilir eşya) — şimdilik sadece zırh parçaları, silah yok
+ * -------------------------------------------------------------------------- */
+
+export const ITEM_SLOTS = ['gloves', 'pants', 'jacket', 'shoes', 'armor'] as const
+export type ItemSlot = (typeof ITEM_SLOTS)[number]
+
+export const ITEM_SLOT_LABELS: Record<ItemSlot, string> = {
+  gloves: 'Eldiven',
+  pants: 'Pantolon',
+  jacket: 'Ceket',
+  shoes: 'Ayakkabı',
+  armor: 'Zırh', // gövde zırhı / kalkan gibi
+}
+
+export const itemSchema = z.object({
+  id: z.string(),
+  name: z.string().min(1, 'İsim gerekli'),
+  slot: z.enum(ITEM_SLOTS),
+  level: z.number().min(1).default(1),
+  armor: z.number().min(0).default(0),
+})
+export type Item = z.infer<typeof itemSchema>
+
+/* ----------------------------------------------------------------------------
  * Quest (görev) + hedef tipleri (objective)
  * -------------------------------------------------------------------------- */
 
@@ -108,7 +132,7 @@ export const questSchema = z.object({
   requiredLevel: z.number().min(1).default(1),
   dependsOnQuestId: z.string().nullable().default(null),
   rewardExp: z.number().min(0).default(0),
-  rewardItem: z.string().default(''),
+  rewardItemId: z.string().nullable().default(null),
   objective: objectiveSchema,
 })
 export type Quest = z.infer<typeof questSchema>
@@ -122,6 +146,7 @@ export const gameDataSchema = z.object({
   npcs: z.array(npcSchema).default([]),
   enemies: z.array(enemySchema).default([]),
   areas: z.array(areaSchema).default([]),
+  items: z.array(itemSchema).default([]),
   quests: z.array(questSchema).default([]),
 })
 export type GameData = z.infer<typeof gameDataSchema>
@@ -131,5 +156,6 @@ export const emptyGameData = (): GameData => ({
   npcs: [],
   enemies: [],
   areas: [],
+  items: [],
   quests: [],
 })

@@ -4,6 +4,7 @@ import {
   type ReactNode,
   type SelectHTMLAttributes,
   type TextareaHTMLAttributes,
+  useState,
 } from 'react'
 
 /* ---------- Button ---------- */
@@ -78,6 +79,130 @@ export function Select({
     <select className={`${fieldClass} appearance-none`} {...props}>
       {children}
     </select>
+  )
+}
+
+/* ---------- SegmentedControl (dropdown yerine doğrudan seçim) ---------- */
+
+export function SegmentedControl<T extends string>({
+  options,
+  value,
+  onChange,
+}: {
+  options: { value: T; label: string }[]
+  value: T
+  onChange: (value: T) => void
+}) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {options.map((opt) => {
+        const active = opt.value === value
+        return (
+          <button
+            key={opt.value}
+            type="button"
+            onClick={() => onChange(opt.value)}
+            className={`min-h-11 flex-1 whitespace-nowrap rounded-lg border px-3 text-sm font-medium transition-colors ${
+              active
+                ? 'border-sky-500 bg-sky-500/15 text-sky-300'
+                : 'border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700'
+            }`}
+          >
+            {opt.label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+/* ---------- Combobox (aranabilir dropdown) ---------- */
+
+export function Combobox<T extends string>({
+  value,
+  onChange,
+  options,
+  placeholder = '— seç —',
+  searchPlaceholder = 'Ara...',
+  emptyText = 'Sonuç yok',
+  noneLabel = '— yok —',
+}: {
+  value: T | null
+  onChange: (value: T | null) => void
+  options: { value: T; label: string; hint?: string }[]
+  placeholder?: string
+  searchPlaceholder?: string
+  emptyText?: string
+  noneLabel?: string
+}) {
+  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState('')
+
+  const selected = options.find((o) => o.value === value) ?? null
+  const q = query.trim().toLowerCase()
+  const filtered = q ? options.filter((o) => o.label.toLowerCase().includes(q)) : options
+
+  const choose = (v: T | null) => {
+    onChange(v)
+    setOpen(false)
+    setQuery('')
+  }
+
+  return (
+    <div className="flex flex-col gap-1">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className={`${fieldClass} flex items-center justify-between text-left`}
+      >
+        <span className={selected ? 'truncate' : 'truncate text-slate-500'}>
+          {selected ? selected.label : placeholder}
+        </span>
+        <span className="ml-2 shrink-0 text-slate-500">▾</span>
+      </button>
+
+      {open && (
+        <div className="rounded-lg border border-slate-700 bg-slate-800">
+          <div className="p-2">
+            <input
+              autoFocus
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={searchPlaceholder}
+              className="min-h-10 w-full rounded-md border border-slate-600 bg-slate-900 px-3 text-base text-slate-100 outline-none placeholder:text-slate-500 focus:border-sky-500"
+            />
+          </div>
+          <ul className="max-h-56 overflow-y-auto pb-1">
+            <li>
+              <button
+                type="button"
+                onClick={() => choose(null)}
+                className="w-full px-3 py-2.5 text-left text-sm text-slate-400 hover:bg-slate-700"
+              >
+                {noneLabel}
+              </button>
+            </li>
+            {filtered.map((o) => (
+              <li key={o.value}>
+                <button
+                  type="button"
+                  onClick={() => choose(o.value)}
+                  className={`flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left text-sm hover:bg-slate-700 ${
+                    o.value === value ? 'text-sky-300' : 'text-slate-200'
+                  }`}
+                >
+                  <span className="truncate">{o.label}</span>
+                  {o.hint && <span className="shrink-0 text-xs text-slate-500">{o.hint}</span>}
+                </button>
+              </li>
+            ))}
+            {filtered.length === 0 && (
+              <li className="px-3 py-2.5 text-sm text-slate-500">{emptyText}</li>
+            )}
+          </ul>
+        </div>
+      )}
+    </div>
   )
 }
 
