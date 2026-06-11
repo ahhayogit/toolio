@@ -157,6 +157,61 @@ export function Toggle({
   )
 }
 
+/* ---------- RangeSlider (min–max aralık seçimi, çift thumb) ---------- */
+
+const rangeInputClass =
+  'pointer-events-none absolute inset-x-0 top-1/2 h-5 w-full -translate-y-1/2 appearance-none bg-transparent outline-none ' +
+  '[&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-sky-500 [&::-webkit-slider-thumb]:bg-white ' +
+  '[&::-moz-range-thumb]:pointer-events-auto [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-sky-500 [&::-moz-range-thumb]:bg-white'
+
+export function RangeSlider({
+  min,
+  max,
+  value,
+  onChange,
+}: {
+  min: number
+  max: number
+  value: [number, number]
+  onChange: (value: [number, number]) => void
+}) {
+  const [lo, hi] = value
+  const span = Math.max(1, max - min)
+  const pct = (v: number) => ((v - min) / span) * 100
+  return (
+    <div className="relative h-9 touch-none">
+      <div className="absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-slate-700" />
+      <div
+        className="absolute top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-sky-500"
+        style={{ left: `${pct(lo)}%`, right: `${100 - pct(hi)}%` }}
+      />
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={1}
+        value={lo}
+        onChange={(e) => onChange([Math.min(Number(e.target.value), hi), hi])}
+        className={rangeInputClass}
+        // İki thumb da sağ uçta üst üsteyken alttaki (lo) seçilebilsin.
+        style={{ zIndex: lo === max ? 30 : 20 }}
+        aria-label="Alt sınır"
+      />
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={1}
+        value={hi}
+        onChange={(e) => onChange([lo, Math.max(Number(e.target.value), lo)])}
+        className={rangeInputClass}
+        style={{ zIndex: 25 }}
+        aria-label="Üst sınır"
+      />
+    </div>
+  )
+}
+
 /* ---------- Combobox (aranabilir dropdown) ---------- */
 
 export function Combobox<T extends string>({

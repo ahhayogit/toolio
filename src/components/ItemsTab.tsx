@@ -16,6 +16,7 @@ import {
   Field,
   Modal,
   NumberInput,
+  RangeSlider,
   SearchInput,
   SegmentedControl,
   TextInput,
@@ -36,10 +37,21 @@ export function ItemsTab() {
   const deleteItem = useStore((s) => s.deleteItem)
   const [editing, setEditing] = useState<Item | 'new' | null>(null)
   const [query, setQuery] = useState('')
+  const [slotTab, setSlotTab] = useState<ItemSlot | 'all'>('all')
+  // null = seviye filtresi yok; slider oynatılınca [alt, üst] tutulur.
+  const [levelRange, setLevelRange] = useState<[number, number] | null>(null)
+
+  const maxLevel = items.reduce((m, it) => Math.max(m, it.level), 1)
+  const hi = Math.min(levelRange?.[1] ?? maxLevel, maxLevel)
+  const lo = Math.min(levelRange?.[0] ?? 1, hi)
+  const rangeActive = lo !== 1 || hi !== maxLevel
 
   const q = query.trim().toLowerCase()
-  const filtered = q ? items.filter((it) => it.name.toLowerCase().includes(q)) : items
-  // Slot sırasına göre gruplandır (boş gruplar gizlenir).
+  const filtered = items.filter(
+    (it) => (!q || it.name.toLowerCase().includes(q)) && it.level >= lo && it.level <= hi,
+  )
+  const visible = slotTab === 'all' ? filtered : filtered.filter((it) => it.slot === slotTab)
+  // "Tümü" sekmesinde slot sırasına göre gruplandır (boş gruplar gizlenir).
   const groups = ITEM_SLOTS.map((slot) => ({
     slot,
     rows: filtered.filter((it) => it.slot === slot),
@@ -52,14 +64,54 @@ export function ItemsTab() {
       </Button>
 
       {items.length > 0 && (
-        <SearchInput value={query} onChange={setQuery} placeholder="Item ara..." />
+        <>
+          <div className="flex gap-1.5 overflow-x-auto pb-1">
+            <SlotChip active={slotTab === 'all'} onClick={() => setSlotTab('all')}>
+              Tümü <span className="opacity-60">{filtered.length}</span>
+            </SlotChip>
+            {ITEM_SLOTS.map((slot) => {
+              const count = filtered.filter((it) => it.slot === slot).length
+              return (
+                <SlotChip key={slot} active={slotTab === slot} onClick={() => setSlotTab(slot)}>
+                  {ITEM_SLOT_ICONS[slot]} {ITEM_SLOT_LABELS[slot]}
+                  {count > 0 && <span className="opacity-60"> {count}</span>}
+                </SlotChip>
+              )
+            })}
+          </div>
+
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <div className="min-w-0 flex-1">
+              <SearchInput value={query} onChange={setQuery} placeholder="Item ara..." />
+            </div>
+            {maxLevel > 1 && (
+              <div className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-1 sm:w-64">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-400">
+                    Seviye {lo} – {hi}
+                  </span>
+                  {rangeActive && (
+                    <button
+                      type="button"
+                      className="text-sky-400 hover:text-sky-300"
+                      onClick={() => setLevelRange(null)}
+                    >
+                      sıfırla
+                    </button>
+                  )}
+                </div>
+                <RangeSlider min={1} max={maxLevel} value={[lo, hi]} onChange={setLevelRange} />
+              </div>
+            )}
+          </div>
+        </>
       )}
 
       {items.length === 0 ? (
         <EmptyState text="Henüz item yok. Yeni bir item ekle ya da Materyal'den temel materyal üret." />
-      ) : filtered.length === 0 ? (
-        <EmptyState text="Aramayla eşleşen item yok." />
-      ) : (
+      ) : visible.length === 0 ? (
+        <EmptyState text="Filtreyle eşleşen item yok." />
+      ) : slotTab === 'all' ? (
         groups.map((group) => (
           <div key={group.slot} className="flex flex-col gap-2">
             <div className="flex items-center gap-2 px-1 pt-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -68,45 +120,93 @@ export function ItemsTab() {
               <span className="opacity-60">{group.rows.length}</span>
             </div>
             {group.rows.map((item) => (
-              <div
+              <ItemRow
                 key={item.id}
-                className="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900 px-4 py-3"
-              >
-                <span className="text-xl">{ITEM_SLOT_ICONS[item.slot]}</span>
-                <button className="min-w-0 flex-1 text-left" onClick={() => setEditing(item)}>
-                  <div className="flex items-center gap-2 font-medium text-slate-100">
-                    <span className="truncate">{item.name}</span>
-                    {item.baseMaterialId && (
-                      <span className="shrink-0 rounded bg-slate-700 px-1.5 py-0.5 text-xs font-medium text-slate-300">
-                        oto
-                      </span>
-                    )}
-                  </div>
-                  <div className="text-xs text-slate-500">
-                    Lv {item.level} · 🛡 {item.armor} · 🪙 {item.price} · {item.materials.length}{' '}
-                    materyal
-                  </div>
-                </button>
-                {item.baseMaterialId ? (
-                  <span className="shrink-0 px-2 text-xs text-slate-600">materyalden</span>
-                ) : (
-                  <Button
-                    variant="danger"
-                    onClick={async () => {
-                      if (await confirmDialog(`"${item.name}" silinsin mi?`)) deleteItem(item.id)
-                    }}
-                  >
-                    Sil
-                  </Button>
-                )}
-              </div>
+                item={item}
+                onEdit={() => setEditing(item)}
+                onDelete={() => deleteItem(item.id)}
+              />
             ))}
           </div>
+        ))
+      ) : (
+        visible.map((item) => (
+          <ItemRow
+            key={item.id}
+            item={item}
+            onEdit={() => setEditing(item)}
+            onDelete={() => deleteItem(item.id)}
+          />
         ))
       )}
 
       {editing && (
         <ItemForm initial={editing === 'new' ? null : editing} onClose={() => setEditing(null)} />
+      )}
+    </div>
+  )
+}
+
+function SlotChip({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean
+  onClick: () => void
+  children: React.ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`shrink-0 whitespace-nowrap rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+        active
+          ? 'border-sky-500 bg-sky-500/15 text-sky-300'
+          : 'border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700'
+      }`}
+    >
+      {children}
+    </button>
+  )
+}
+
+function ItemRow({
+  item,
+  onEdit,
+  onDelete,
+}: {
+  item: Item
+  onEdit: () => void
+  onDelete: () => void
+}) {
+  return (
+    <div className="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900 px-4 py-3">
+      <span className="text-xl">{ITEM_SLOT_ICONS[item.slot]}</span>
+      <button className="min-w-0 flex-1 text-left" onClick={onEdit}>
+        <div className="flex items-center gap-2 font-medium text-slate-100">
+          <span className="truncate">{item.name}</span>
+          {item.baseMaterialId && (
+            <span className="shrink-0 rounded bg-slate-700 px-1.5 py-0.5 text-xs font-medium text-slate-300">
+              oto
+            </span>
+          )}
+        </div>
+        <div className="text-xs text-slate-500">
+          Lv {item.level} · 🛡 {item.armor} · 🪙 {item.price} · {item.materials.length} materyal
+        </div>
+      </button>
+      {item.baseMaterialId ? (
+        <span className="shrink-0 px-2 text-xs text-slate-600">materyalden</span>
+      ) : (
+        <Button
+          variant="danger"
+          onClick={async () => {
+            if (await confirmDialog(`"${item.name}" silinsin mi?`)) onDelete()
+          }}
+        >
+          Sil
+        </Button>
       )}
     </div>
   )
