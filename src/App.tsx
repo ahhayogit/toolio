@@ -3,7 +3,8 @@ import { useStore } from './store'
 import { downloadJson, parseJsonFile } from './lib/io'
 import { findIssues } from './lib/validate'
 import { objectiveSummary } from './lib/summary'
-import { Button } from './components/ui'
+import { notify, confirmDialog } from './lib/ui-store'
+import { Button, ConfirmDialog, Toasts } from './components/ui'
 import { NpcsTab } from './components/NpcsTab'
 import { EnemiesTab } from './components/EnemiesTab'
 import { AreasTab } from './components/AreasTab'
@@ -45,32 +46,33 @@ export default function App() {
       })),
     }
     downloadJson(withSummary)
+    notify('JSON indirildi.')
   }
 
   const handleImport = async (file: File) => {
     try {
       const data = await parseJsonFile(file)
       loadData(data)
-      alert('JSON başarıyla yüklendi.')
+      notify('JSON yüklendi.')
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Dosya okunamadı.')
+      notify(err instanceof Error ? err.message : 'Dosya okunamadı.', 'error')
     }
   }
 
-  const tabs: { key: Tab; label: string; count: number }[] = [
-    { key: 'npcs', label: 'NPC', count: npcs.length },
-    { key: 'enemies', label: 'Düşman', count: enemies.length },
-    { key: 'areas', label: 'Bölge', count: areas.length },
-    { key: 'materials', label: 'Materyal', count: materials.length },
-    { key: 'items', label: 'Item', count: items.length },
-    { key: 'affixes', label: 'Ek', count: affixes.length },
-    { key: 'quests', label: 'Görev', count: quests.length },
+  const tabs: { key: Tab; label: string; icon: string; count: number }[] = [
+    { key: 'npcs', label: 'NPC', icon: '🧑', count: npcs.length },
+    { key: 'enemies', label: 'Düşman', icon: '👹', count: enemies.length },
+    { key: 'areas', label: 'Bölge', icon: '🗺️', count: areas.length },
+    { key: 'materials', label: 'Materyal', icon: '🧵', count: materials.length },
+    { key: 'items', label: 'Item', icon: '🛡️', count: items.length },
+    { key: 'affixes', label: 'Ek', icon: '✨', count: affixes.length },
+    { key: 'quests', label: 'Görev', icon: '📜', count: quests.length },
   ]
 
   return (
     <div className="mx-auto flex min-h-full max-w-2xl flex-col">
       {/* Üst bar */}
-      <header className="sticky top-0 z-10 flex flex-wrap items-center gap-2 border-b border-slate-800 bg-slate-950/90 px-4 py-3 backdrop-blur">
+      <header className="sticky top-0 z-20 flex flex-wrap items-center gap-2 border-b border-slate-800 bg-slate-950/90 px-4 py-3 backdrop-blur">
         <h1 className="mr-auto text-lg font-bold tracking-tight">
           Toolio <span className="text-sky-400">RPG</span>
         </h1>
@@ -85,33 +87,40 @@ export default function App() {
             e.target.value = ''
           }}
         />
-        <Button onClick={() => fileRef.current?.click()}>JSON Aç</Button>
+        <Button onClick={() => fileRef.current?.click()}>📂 Aç</Button>
         <Button variant="primary" onClick={handleExport}>
-          JSON Kaydet
+          💾 Kaydet
         </Button>
         <Button
           variant="danger"
-          onClick={() => {
-            if (confirm('Tüm veriler silinsin mi? Bu geri alınamaz.')) resetAll()
+          onClick={async () => {
+            if (await confirmDialog('Tüm veriler silinsin mi? Bu geri alınamaz.', 'Temizle')) {
+              resetAll()
+              notify('Tüm veriler temizlendi.', 'info')
+            }
           }}
         >
-          Temizle
+          🗑 Temizle
         </Button>
       </header>
 
       {/* Sekmeler */}
-      <nav className="flex overflow-x-auto border-b border-slate-800 px-1">
+      <nav className="sticky top-[57px] z-10 flex overflow-x-auto border-b border-slate-800 bg-slate-950/90 px-1 backdrop-blur">
         {tabs.map((t) => (
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
-            className={`min-w-[4.5rem] flex-1 whitespace-nowrap border-b-2 px-2 py-3 text-sm font-medium transition-colors ${
+            className={`flex min-w-[3.75rem] flex-1 flex-col items-center gap-0.5 border-b-2 px-1 py-2 transition-colors ${
               tab === t.key
                 ? 'border-sky-400 text-sky-400'
                 : 'border-transparent text-slate-400 hover:text-slate-200'
             }`}
           >
-            {t.label} <span className="text-xs opacity-70">({t.count})</span>
+            <span className="text-lg leading-none">{t.icon}</span>
+            <span className="whitespace-nowrap text-[11px] font-medium">
+              {t.label}
+              {t.count > 0 && <span className="opacity-60"> {t.count}</span>}
+            </span>
           </button>
         ))}
       </nav>
@@ -119,7 +128,7 @@ export default function App() {
       {/* Kırık referans uyarıları */}
       {issues.length > 0 && (
         <div className="mx-4 mt-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
-          <strong>{issues.length} uyarı:</strong>
+          <strong>⚠ {issues.length} uyarı:</strong>
           <ul className="mt-1 list-inside list-disc">
             {issues.slice(0, 5).map((iss, i) => (
               <li key={i}>{iss.message}</li>
@@ -143,6 +152,9 @@ export default function App() {
       <footer className="px-4 py-4 text-center text-xs text-slate-600">
         Veriler tarayıcında otomatik saklanır · JSON ile yedekle/aktar
       </footer>
+
+      <Toasts />
+      <ConfirmDialog />
     </div>
   )
 }

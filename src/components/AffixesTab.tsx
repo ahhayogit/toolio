@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useStore } from '../store'
 import { newId } from '../lib/id'
+import { confirmDialog, notify } from '../lib/ui-store'
 import {
   AFFIX_KINDS,
   AFFIX_KIND_LABELS,
@@ -17,6 +18,7 @@ import {
   Field,
   Modal,
   NumberInput,
+  SearchInput,
   SegmentedControl,
   TextArea,
   TextInput,
@@ -49,6 +51,10 @@ export function AffixesTab() {
   const affixes = useStore((s) => s.affixes)
   const deleteAffix = useStore((s) => s.deleteAffix)
   const [editing, setEditing] = useState<Affix | 'new' | null>(null)
+  const [query, setQuery] = useState('')
+
+  const q = query.trim().toLowerCase()
+  const filtered = q ? affixes.filter((a) => a.name.toLowerCase().includes(q)) : affixes
 
   return (
     <div className="flex flex-col gap-3">
@@ -56,29 +62,36 @@ export function AffixesTab() {
         + Yeni Ek
       </Button>
 
+      {affixes.length > 0 && (
+        <SearchInput value={query} onChange={setQuery} placeholder="Ek ara..." />
+      )}
+
       {affixes.length === 0 ? (
         <EmptyState text="Henüz ön/son ek yok. Örn: 'buz hasarlı' (ön ek), 'zehir dirençli' (son ek)." />
+      ) : filtered.length === 0 ? (
+        <EmptyState text="Aramayla eşleşen ek yok." />
       ) : (
-        affixes.map((affix) => (
+        filtered.map((affix) => (
           <div
             key={affix.id}
-            className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-900 px-4 py-3"
+            className="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900 px-4 py-3"
           >
-            <button className="flex-1 text-left" onClick={() => setEditing(affix)}>
+            <span className="text-xl">✨</span>
+            <button className="min-w-0 flex-1 text-left" onClick={() => setEditing(affix)}>
               <div className="flex items-center gap-2 font-medium text-slate-100">
-                {affix.name}
-                <span className="rounded bg-sky-500/15 px-1.5 py-0.5 text-xs font-medium text-sky-300">
+                <span className="truncate">{affix.name}</span>
+                <span className="shrink-0 rounded bg-sky-500/15 px-1.5 py-0.5 text-xs font-medium text-sky-300">
                   {AFFIX_KIND_LABELS[affix.kind]}
                 </span>
               </div>
-              <div className="text-xs text-slate-500">
+              <div className="truncate text-xs text-slate-500">
                 Lv {affix.level} · {affixStatSummary(affix)}
               </div>
             </button>
             <Button
               variant="danger"
-              onClick={() => {
-                if (confirm(`"${affix.name}" silinsin mi?`)) deleteAffix(affix.id)
+              onClick={async () => {
+                if (await confirmDialog(`"${affix.name}" silinsin mi?`)) deleteAffix(affix.id)
               }}
             >
               Sil
@@ -154,7 +167,7 @@ function AffixForm({ initial, onClose }: { initial: Affix | null; onClose: () =>
 
   const save = () => {
     if (!name.trim()) {
-      alert('İsim gerekli.')
+      notify('İsim gerekli.', 'error')
       return
     }
     const affix: Affix =
@@ -183,6 +196,7 @@ function AffixForm({ initial, onClose }: { initial: Affix | null; onClose: () =>
           }
     if (initial) updateAffix(affix)
     else addAffix(affix)
+    notify('Ek kaydedildi.')
     onClose()
   }
 

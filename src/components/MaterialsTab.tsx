@@ -1,14 +1,41 @@
 import { useState } from 'react'
 import { useStore } from '../store'
 import { newId } from '../lib/id'
-import { type Material } from '../types/model'
-import { Button, EmptyState, Field, Modal, NumberInput, TextArea, TextInput, Toggle } from './ui'
+import { confirmDialog, notify } from '../lib/ui-store'
+import {
+  MATERIAL_TYPES,
+  MATERIAL_TYPE_LABELS,
+  type Material,
+  type MaterialType,
+} from '../types/model'
+import {
+  Button,
+  EmptyState,
+  Field,
+  Modal,
+  NumberInput,
+  SearchInput,
+  SegmentedControl,
+  TextArea,
+  TextInput,
+  Toggle,
+} from './ui'
+
+const MATERIAL_TYPE_ICONS: Record<MaterialType, string> = {
+  maden: '⛏️',
+  bitki: '🌿',
+  cevher: '💎',
+}
 
 export function MaterialsTab() {
   const materials = useStore((s) => s.materials)
   const items = useStore((s) => s.items)
   const deleteMaterial = useStore((s) => s.deleteMaterial)
   const [editing, setEditing] = useState<Material | 'new' | null>(null)
+  const [query, setQuery] = useState('')
+
+  const q = query.trim().toLowerCase()
+  const filtered = q ? materials.filter((m) => m.name.toLowerCase().includes(q)) : materials
 
   return (
     <div className="flex flex-col gap-3">
@@ -16,35 +43,43 @@ export function MaterialsTab() {
         + Yeni Materyal
       </Button>
 
+      {materials.length > 0 && (
+        <SearchInput value={query} onChange={setQuery} placeholder="Materyal ara..." />
+      )}
+
       {materials.length === 0 ? (
         <EmptyState text="Henüz materyal yok. Item yapımında kullanmak için materyal ekle." />
+      ) : filtered.length === 0 ? (
+        <EmptyState text="Aramayla eşleşen materyal yok." />
       ) : (
-        materials.map((material) => {
+        filtered.map((material) => {
           const usedBy = items.filter((it) =>
             it.materials.some((m) => m.materialId === material.id),
           ).length
           return (
             <div
               key={material.id}
-              className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-900 px-4 py-3"
+              className="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900 px-4 py-3"
             >
-              <button className="flex-1 text-left" onClick={() => setEditing(material)}>
+              <span className="text-xl">{MATERIAL_TYPE_ICONS[material.type]}</span>
+              <button className="min-w-0 flex-1 text-left" onClick={() => setEditing(material)}>
                 <div className="flex items-center gap-2 font-medium text-slate-100">
-                  {material.name}
+                  <span className="truncate">{material.name}</span>
                   {material.isBaseMaterial && (
-                    <span className="rounded bg-sky-500/15 px-1.5 py-0.5 text-xs font-medium text-sky-300">
+                    <span className="shrink-0 rounded bg-sky-500/15 px-1.5 py-0.5 text-xs font-medium text-sky-300">
                       temel
                     </span>
                   )}
                 </div>
                 <div className="text-xs text-slate-500">
-                  Lv {material.level} · {usedBy} item'da kullanılıyor · {material.id}
+                  {MATERIAL_TYPE_LABELS[material.type]} · Lv {material.level} · {usedBy} item'da
                 </div>
               </button>
               <Button
                 variant="danger"
-                onClick={() => {
-                  if (confirm(`"${material.name}" silinsin mi?`)) deleteMaterial(material.id)
+                onClick={async () => {
+                  if (await confirmDialog(`"${material.name}" silinsin mi?`))
+                    deleteMaterial(material.id)
                 }}
               >
                 Sil
@@ -69,24 +104,27 @@ function MaterialForm({ initial, onClose }: { initial: Material | null; onClose:
   const updateMaterial = useStore((s) => s.updateMaterial)
 
   const [name, setName] = useState(initial?.name ?? '')
+  const [type, setType] = useState<MaterialType>(initial?.type ?? 'maden')
   const [description, setDescription] = useState(initial?.description ?? '')
   const [level, setLevel] = useState(initial?.level ?? 1)
   const [isBaseMaterial, setIsBaseMaterial] = useState(initial?.isBaseMaterial ?? false)
 
   const save = () => {
     if (!name.trim()) {
-      alert('İsim gerekli.')
+      notify('İsim gerekli.', 'error')
       return
     }
     const material: Material = {
       id: initial?.id ?? newId('mat'),
       name: name.trim(),
+      type,
       description: description.trim(),
       level,
       isBaseMaterial,
     }
     if (initial) updateMaterial(material)
     else addMaterial(material)
+    notify(isBaseMaterial ? 'Materyal kaydedildi (kıyafetler güncellendi).' : 'Materyal kaydedildi.')
     onClose()
   }
 
@@ -105,10 +143,14 @@ function MaterialForm({ initial, onClose }: { initial: Material | null; onClose:
     >
       <div className="flex flex-col gap-4">
         <Field label="İsim">
-          <TextInput
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Örn: Keten"
+          <TextInput value={name} onChange={(e) => setName(e.target.value)} placeholder="Örn: Keten" />
+        </Field>
+
+        <Field label="Tür">
+          <SegmentedControl
+            value={type}
+            onChange={setType}
+            options={MATERIAL_TYPES.map((t) => ({ value: t, label: MATERIAL_TYPE_LABELS[t] }))}
           />
         </Field>
 

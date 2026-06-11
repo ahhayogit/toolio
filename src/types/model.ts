@@ -39,6 +39,7 @@ export const emptyResistances = (): Resistances => ({
 export const enemySchema = z.object({
   id: z.string(),
   name: z.string().min(1, 'İsim gerekli'),
+  level: z.number().min(1).default(1),
   health: z.number().min(0).default(100),
   mana: z.number().min(0).default(0),
   armor: z.number().min(0).default(0),
@@ -75,9 +76,19 @@ export type Area = z.infer<typeof areaSchema>
  * Material (üretim materyali) — item'ların yapımında kullanılır
  * -------------------------------------------------------------------------- */
 
+export const MATERIAL_TYPES = ['maden', 'bitki', 'cevher'] as const
+export type MaterialType = (typeof MATERIAL_TYPES)[number]
+
+export const MATERIAL_TYPE_LABELS: Record<MaterialType, string> = {
+  maden: 'Maden',
+  bitki: 'Bitki',
+  cevher: 'Cevher',
+}
+
 export const materialSchema = z.object({
   id: z.string(),
   name: z.string().min(1, 'İsim gerekli'),
+  type: z.enum(MATERIAL_TYPES).default('maden'),
   description: z.string().default(''),
   level: z.number().min(1).default(1),
   // Açıkken bu materyal kendi level'inde 4 kıyafet item'ı (zırh hariç) üretir.

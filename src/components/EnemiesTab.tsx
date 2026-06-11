@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useStore } from '../store'
 import { newId } from '../lib/id'
+import { confirmDialog, notify } from '../lib/ui-store'
 import {
   RESISTANCE_LABELS,
   RESISTANCE_TYPES,
@@ -8,12 +9,16 @@ import {
   type Resistances,
   emptyResistances,
 } from '../types/model'
-import { Button, EmptyState, Field, Modal, NumberInput, TextInput } from './ui'
+import { Button, EmptyState, Field, Modal, NumberInput, SearchInput, TextInput } from './ui'
 
 export function EnemiesTab() {
   const enemies = useStore((s) => s.enemies)
   const deleteEnemy = useStore((s) => s.deleteEnemy)
   const [editing, setEditing] = useState<Enemy | 'new' | null>(null)
+  const [query, setQuery] = useState('')
+
+  const q = query.trim().toLowerCase()
+  const filtered = q ? enemies.filter((e) => e.name.toLowerCase().includes(q)) : enemies
 
   return (
     <div className="flex flex-col gap-3">
@@ -21,24 +26,31 @@ export function EnemiesTab() {
         + Yeni Düşman
       </Button>
 
+      {enemies.length > 0 && (
+        <SearchInput value={query} onChange={setQuery} placeholder="Düşman ara..." />
+      )}
+
       {enemies.length === 0 ? (
         <EmptyState text="Henüz düşman yok. Yeni bir düşman ekle." />
+      ) : filtered.length === 0 ? (
+        <EmptyState text="Aramayla eşleşen düşman yok." />
       ) : (
-        enemies.map((enemy) => (
+        filtered.map((enemy) => (
           <div
             key={enemy.id}
-            className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-900 px-4 py-3"
+            className="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900 px-4 py-3"
           >
-            <button className="flex-1 text-left" onClick={() => setEditing(enemy)}>
-              <div className="font-medium text-slate-100">{enemy.name}</div>
+            <span className="text-xl">👹</span>
+            <button className="min-w-0 flex-1 text-left" onClick={() => setEditing(enemy)}>
+              <div className="truncate font-medium text-slate-100">{enemy.name}</div>
               <div className="text-xs text-slate-500">
-                ❤ {enemy.health} · ✦ {enemy.mana} · 🛡 {enemy.armor} · {enemy.id}
+                Lv {enemy.level} · ❤ {enemy.health} · ✦ {enemy.mana} · 🛡 {enemy.armor}
               </div>
             </button>
             <Button
               variant="danger"
-              onClick={() => {
-                if (confirm(`"${enemy.name}" silinsin mi?`)) deleteEnemy(enemy.id)
+              onClick={async () => {
+                if (await confirmDialog(`"${enemy.name}" silinsin mi?`)) deleteEnemy(enemy.id)
               }}
             >
               Sil
@@ -48,10 +60,7 @@ export function EnemiesTab() {
       )}
 
       {editing && (
-        <EnemyForm
-          initial={editing === 'new' ? null : editing}
-          onClose={() => setEditing(null)}
-        />
+        <EnemyForm initial={editing === 'new' ? null : editing} onClose={() => setEditing(null)} />
       )}
     </div>
   )
@@ -62,6 +71,7 @@ function EnemyForm({ initial, onClose }: { initial: Enemy | null; onClose: () =>
   const updateEnemy = useStore((s) => s.updateEnemy)
 
   const [name, setName] = useState(initial?.name ?? '')
+  const [level, setLevel] = useState(initial?.level ?? 1)
   const [health, setHealth] = useState(initial?.health ?? 100)
   const [mana, setMana] = useState(initial?.mana ?? 0)
   const [armor, setArmor] = useState(initial?.armor ?? 0)
@@ -71,12 +81,13 @@ function EnemyForm({ initial, onClose }: { initial: Enemy | null; onClose: () =>
 
   const save = () => {
     if (!name.trim()) {
-      alert('İsim gerekli.')
+      notify('İsim gerekli.', 'error')
       return
     }
     const enemy: Enemy = {
       id: initial?.id ?? newId('enemy'),
       name: name.trim(),
+      level,
       health,
       mana,
       armor,
@@ -84,6 +95,7 @@ function EnemyForm({ initial, onClose }: { initial: Enemy | null; onClose: () =>
     }
     if (initial) updateEnemy(enemy)
     else addEnemy(enemy)
+    notify('Düşman kaydedildi.')
     onClose()
   }
 
@@ -102,10 +114,17 @@ function EnemyForm({ initial, onClose }: { initial: Enemy | null; onClose: () =>
     >
       <div className="flex flex-col gap-4">
         <Field label="İsim">
-          <TextInput value={name} onChange={(e) => setName(e.target.value)} placeholder="Örn: Mağara Goblini" />
+          <TextInput
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Örn: Mağara Goblini"
+          />
         </Field>
 
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Seviye">
+            <NumberInput min={1} value={level} onChange={(e) => setLevel(Number(e.target.value))} />
+          </Field>
           <Field label="Can">
             <NumberInput value={health} onChange={(e) => setHealth(Number(e.target.value))} />
           </Field>

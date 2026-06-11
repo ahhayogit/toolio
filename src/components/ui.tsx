@@ -6,6 +6,7 @@ import {
   type TextareaHTMLAttributes,
   useState,
 } from 'react'
+import { useUiStore } from '../lib/ui-store'
 
 /* ---------- Button ---------- */
 
@@ -285,6 +286,90 @@ export function EmptyState({ text }: { text: string }) {
   return (
     <div className="rounded-xl border border-dashed border-slate-700 px-4 py-10 text-center text-sm text-slate-500">
       {text}
+    </div>
+  )
+}
+
+/* ---------- SearchInput (liste arama kutusu) ---------- */
+
+export function SearchInput({
+  value,
+  onChange,
+  placeholder = 'Ara...',
+}: {
+  value: string
+  onChange: (value: string) => void
+  placeholder?: string
+}) {
+  return (
+    <div className="relative">
+      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">
+        🔍
+      </span>
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="min-h-11 w-full rounded-lg border border-slate-700 bg-slate-800 pl-9 pr-9 text-base text-slate-100 outline-none placeholder:text-slate-500 focus:border-sky-500"
+      />
+      {value && (
+        <button
+          type="button"
+          onClick={() => onChange('')}
+          aria-label="Temizle"
+          className="absolute right-1 top-1/2 -translate-y-1/2 px-2 text-slate-400 hover:text-slate-200"
+        >
+          ✕
+        </button>
+      )}
+    </div>
+  )
+}
+
+/* ---------- Toasts (geçici bildirimler) ---------- */
+
+export function Toasts() {
+  const toasts = useUiStore((s) => s.toasts)
+  const dismiss = useUiStore((s) => s.dismiss)
+  return (
+    <div className="pointer-events-none fixed inset-x-0 bottom-4 z-[60] flex flex-col items-center gap-2 px-4">
+      {toasts.map((t) => (
+        <button
+          key={t.id}
+          onClick={() => dismiss(t.id)}
+          className={`pointer-events-auto max-w-sm rounded-lg px-4 py-2.5 text-sm font-medium shadow-lg ${
+            t.type === 'error'
+              ? 'bg-red-500 text-white'
+              : t.type === 'info'
+                ? 'bg-slate-700 text-slate-100'
+                : 'bg-emerald-500 text-white'
+          }`}
+        >
+          {t.message}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+/* ---------- ConfirmDialog (uygulama içi onay) ---------- */
+
+export function ConfirmDialog() {
+  const confirmState = useUiStore((s) => s.confirmState)
+  const resolveConfirm = useUiStore((s) => s.resolveConfirm)
+  if (!confirmState) return null
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 px-4">
+      <div className="w-full max-w-sm rounded-2xl bg-slate-900 p-5 shadow-xl">
+        <p className="text-sm text-slate-200">{confirmState.message}</p>
+        <div className="mt-4 flex justify-end gap-2">
+          <Button onClick={() => resolveConfirm(false)}>Vazgeç</Button>
+          <Button variant="danger" onClick={() => resolveConfirm(true)}>
+            {confirmState.confirmLabel}
+          </Button>
+        </div>
+      </div>
     </div>
   )
 }

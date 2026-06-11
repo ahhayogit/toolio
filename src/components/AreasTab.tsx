@@ -1,14 +1,19 @@
 import { useState } from 'react'
 import { useStore } from '../store'
 import { newId } from '../lib/id'
+import { confirmDialog, notify } from '../lib/ui-store'
 import { type Area } from '../types/model'
-import { Button, EmptyState, Field, Modal, TextArea, TextInput } from './ui'
+import { Button, EmptyState, Field, Modal, SearchInput, TextArea, TextInput } from './ui'
 
 export function AreasTab() {
   const areas = useStore((s) => s.areas)
   const quests = useStore((s) => s.quests)
   const deleteArea = useStore((s) => s.deleteArea)
   const [editing, setEditing] = useState<Area | 'new' | null>(null)
+  const [query, setQuery] = useState('')
+
+  const q = query.trim().toLowerCase()
+  const filtered = q ? areas.filter((a) => a.name.toLowerCase().includes(q)) : areas
 
   return (
     <div className="flex flex-col gap-3">
@@ -16,28 +21,34 @@ export function AreasTab() {
         + Yeni Bölge
       </Button>
 
+      {areas.length > 0 && (
+        <SearchInput value={query} onChange={setQuery} placeholder="Bölge ara..." />
+      )}
+
       {areas.length === 0 ? (
         <EmptyState text="Henüz bölge yok. Keşif görevlerinde kullanmak için bölge ekle." />
+      ) : filtered.length === 0 ? (
+        <EmptyState text="Aramayla eşleşen bölge yok." />
       ) : (
-        areas.map((area) => {
+        filtered.map((area) => {
           const usedBy = quests.filter(
-            (q) => q.objective.type === 'EXPLORE_AREA' && q.objective.targetAreaId === area.id,
+            (quest) =>
+              quest.objective.type === 'EXPLORE_AREA' && quest.objective.targetAreaId === area.id,
           ).length
           return (
             <div
               key={area.id}
-              className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-900 px-4 py-3"
+              className="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900 px-4 py-3"
             >
-              <button className="flex-1 text-left" onClick={() => setEditing(area)}>
-                <div className="font-medium text-slate-100">{area.name}</div>
-                <div className="text-xs text-slate-500">
-                  {usedBy} keşif görevinde · {area.id}
-                </div>
+              <span className="text-xl">🗺️</span>
+              <button className="min-w-0 flex-1 text-left" onClick={() => setEditing(area)}>
+                <div className="truncate font-medium text-slate-100">{area.name}</div>
+                <div className="text-xs text-slate-500">{usedBy} keşif görevinde</div>
               </button>
               <Button
                 variant="danger"
-                onClick={() => {
-                  if (confirm(`"${area.name}" silinsin mi?`)) deleteArea(area.id)
+                onClick={async () => {
+                  if (await confirmDialog(`"${area.name}" silinsin mi?`)) deleteArea(area.id)
                 }}
               >
                 Sil
@@ -48,10 +59,7 @@ export function AreasTab() {
       )}
 
       {editing && (
-        <AreaForm
-          initial={editing === 'new' ? null : editing}
-          onClose={() => setEditing(null)}
-        />
+        <AreaForm initial={editing === 'new' ? null : editing} onClose={() => setEditing(null)} />
       )}
     </div>
   )
@@ -66,7 +74,7 @@ function AreaForm({ initial, onClose }: { initial: Area | null; onClose: () => v
 
   const save = () => {
     if (!name.trim()) {
-      alert('İsim gerekli.')
+      notify('İsim gerekli.', 'error')
       return
     }
     const area: Area = {
@@ -76,6 +84,7 @@ function AreaForm({ initial, onClose }: { initial: Area | null; onClose: () => v
     }
     if (initial) updateArea(area)
     else addArea(area)
+    notify('Bölge kaydedildi.')
     onClose()
   }
 

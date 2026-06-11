@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useStore } from '../store'
 import { newId } from '../lib/id'
+import { confirmDialog, notify } from '../lib/ui-store'
 import {
   ITEM_SLOTS,
   ITEM_SLOT_LABELS,
@@ -15,14 +16,34 @@ import {
   Field,
   Modal,
   NumberInput,
+  SearchInput,
   SegmentedControl,
   TextInput,
 } from './ui'
+
+const ITEM_SLOT_ICONS: Record<ItemSlot, string> = {
+  gloves: '🧤',
+  pants: '👖',
+  jacket: '🧥',
+  shoes: '👟',
+  armor: '🛡️',
+  ring: '💍',
+  necklace: '📿',
+}
 
 export function ItemsTab() {
   const items = useStore((s) => s.items)
   const deleteItem = useStore((s) => s.deleteItem)
   const [editing, setEditing] = useState<Item | 'new' | null>(null)
+  const [query, setQuery] = useState('')
+
+  const q = query.trim().toLowerCase()
+  const filtered = q ? items.filter((it) => it.name.toLowerCase().includes(q)) : items
+  // Slot sırasına göre gruplandır (boş gruplar gizlenir).
+  const groups = ITEM_SLOTS.map((slot) => ({
+    slot,
+    rows: filtered.filter((it) => it.slot === slot),
+  })).filter((g) => g.rows.length > 0)
 
   return (
     <div className="flex flex-col gap-3">
@@ -30,49 +51,61 @@ export function ItemsTab() {
         + Yeni Item
       </Button>
 
+      {items.length > 0 && (
+        <SearchInput value={query} onChange={setQuery} placeholder="Item ara..." />
+      )}
+
       {items.length === 0 ? (
-        <EmptyState text="Henüz item yok. Yeni bir zırh parçası ekle." />
+        <EmptyState text="Henüz item yok. Yeni bir item ekle ya da Materyal'den temel materyal üret." />
+      ) : filtered.length === 0 ? (
+        <EmptyState text="Aramayla eşleşen item yok." />
       ) : (
-        items.map((item) => (
-          <div
-            key={item.id}
-            className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-900 px-4 py-3"
-          >
-            <button className="flex-1 text-left" onClick={() => setEditing(item)}>
-              <div className="flex items-center gap-2 font-medium text-slate-100">
-                {item.name}
-                {item.baseMaterialId && (
-                  <span className="rounded bg-slate-700 px-1.5 py-0.5 text-xs font-medium text-slate-300">
-                    oto
-                  </span>
+        groups.map((group) => (
+          <div key={group.slot} className="flex flex-col gap-2">
+            <div className="flex items-center gap-2 px-1 pt-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <span>{ITEM_SLOT_ICONS[group.slot]}</span>
+              <span>{ITEM_SLOT_LABELS[group.slot]}</span>
+              <span className="opacity-60">{group.rows.length}</span>
+            </div>
+            {group.rows.map((item) => (
+              <div
+                key={item.id}
+                className="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900 px-4 py-3"
+              >
+                <span className="text-xl">{ITEM_SLOT_ICONS[item.slot]}</span>
+                <button className="min-w-0 flex-1 text-left" onClick={() => setEditing(item)}>
+                  <div className="flex items-center gap-2 font-medium text-slate-100">
+                    <span className="truncate">{item.name}</span>
+                    {item.baseMaterialId && (
+                      <span className="shrink-0 rounded bg-slate-700 px-1.5 py-0.5 text-xs font-medium text-slate-300">
+                        oto
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-xs text-slate-500">
+                    Lv {item.level} · 🛡 {item.armor} · {item.materials.length} materyal
+                  </div>
+                </button>
+                {item.baseMaterialId ? (
+                  <span className="shrink-0 px-2 text-xs text-slate-600">materyalden</span>
+                ) : (
+                  <Button
+                    variant="danger"
+                    onClick={async () => {
+                      if (await confirmDialog(`"${item.name}" silinsin mi?`)) deleteItem(item.id)
+                    }}
+                  >
+                    Sil
+                  </Button>
                 )}
               </div>
-              <div className="text-xs text-slate-500">
-                {ITEM_SLOT_LABELS[item.slot]} · Lv {item.level} · 🛡 {item.armor} ·{' '}
-                {item.materials.length} materyal · {item.id}
-              </div>
-            </button>
-            {item.baseMaterialId ? (
-              <span className="px-2 text-xs text-slate-600">materyalden</span>
-            ) : (
-              <Button
-                variant="danger"
-                onClick={() => {
-                  if (confirm(`"${item.name}" silinsin mi?`)) deleteItem(item.id)
-                }}
-              >
-                Sil
-              </Button>
-            )}
+            ))}
           </div>
         ))
       )}
 
       {editing && (
-        <ItemForm
-          initial={editing === 'new' ? null : editing}
-          onClose={() => setEditing(null)}
-        />
+        <ItemForm initial={editing === 'new' ? null : editing} onClose={() => setEditing(null)} />
       )}
     </div>
   )
@@ -99,7 +132,7 @@ function ItemForm({ initial, onClose }: { initial: Item | null; onClose: () => v
 
   const save = () => {
     if (!name.trim()) {
-      alert('İsim gerekli.')
+      notify('İsim gerekli.', 'error')
       return
     }
     const item: Item = {
@@ -113,6 +146,7 @@ function ItemForm({ initial, onClose }: { initial: Item | null; onClose: () => v
     }
     if (initial) updateItem(item)
     else addItem(item)
+    notify('Item kaydedildi.')
     onClose()
   }
 

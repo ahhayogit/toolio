@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useStore } from '../store'
 import { newId } from '../lib/id'
 import { objectiveSummary } from '../lib/summary'
+import { confirmDialog, notify } from '../lib/ui-store'
 import {
   ITEM_SLOT_LABELS,
   QUEST_TYPES,
@@ -22,6 +23,7 @@ import {
   Field,
   Modal,
   NumberInput,
+  SearchInput,
   Select,
   TextArea,
   TextInput,
@@ -36,6 +38,10 @@ export function QuestsTab() {
   const [editing, setEditing] = useState<Quest | 'new' | null>(null)
 
   const npcName = (id: string) => npcs.find((n) => n.id === id)?.name ?? '—'
+  const [query, setQuery] = useState('')
+
+  const q = query.trim().toLowerCase()
+  const filtered = q ? quests.filter((quest) => quest.title.toLowerCase().includes(q)) : quests
 
   return (
     <div className="flex flex-col gap-3">
@@ -43,17 +49,24 @@ export function QuestsTab() {
         + Yeni Görev
       </Button>
 
+      {quests.length > 0 && (
+        <SearchInput value={query} onChange={setQuery} placeholder="Görev ara..." />
+      )}
+
       {quests.length === 0 ? (
         <EmptyState text="Henüz görev yok. Yeni bir görev ekle." />
+      ) : filtered.length === 0 ? (
+        <EmptyState text="Aramayla eşleşen görev yok." />
       ) : (
-        quests.map((quest) => (
+        filtered.map((quest) => (
           <div
             key={quest.id}
-            className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-900 px-4 py-3"
+            className="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900 px-4 py-3"
           >
-            <button className="flex-1 text-left" onClick={() => setEditing(quest)}>
-              <div className="font-medium text-slate-100">{quest.title}</div>
-              <div className="text-xs text-sky-300/80">
+            <span className="text-xl">📜</span>
+            <button className="min-w-0 flex-1 text-left" onClick={() => setEditing(quest)}>
+              <div className="truncate font-medium text-slate-100">{quest.title}</div>
+              <div className="truncate text-xs text-sky-300/80">
                 {objectiveSummary(quest.objective, { npcs, enemies, areas })}
               </div>
               <div className="text-xs text-slate-500">
@@ -62,8 +75,8 @@ export function QuestsTab() {
             </button>
             <Button
               variant="danger"
-              onClick={() => {
-                if (confirm(`"${quest.title}" silinsin mi?`)) deleteQuest(quest.id)
+              onClick={async () => {
+                if (await confirmDialog(`"${quest.title}" silinsin mi?`)) deleteQuest(quest.id)
               }}
             >
               Sil
@@ -125,7 +138,7 @@ function QuestForm({ initial, onClose }: { initial: Quest | null; onClose: () =>
 
   const save = () => {
     if (!title.trim()) {
-      alert('Başlık gerekli.')
+      notify('Başlık gerekli.', 'error')
       return
     }
     const quest: Quest = {
@@ -141,6 +154,7 @@ function QuestForm({ initial, onClose }: { initial: Quest | null; onClose: () =>
     }
     if (initial) updateQuest(quest)
     else addQuest(quest)
+    notify('Görev kaydedildi.')
     onClose()
   }
 
