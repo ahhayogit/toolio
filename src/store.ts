@@ -40,6 +40,7 @@ function syncGeneratedItems(items: Item[], material: Material): Item[] {
       armor: prev?.armor ?? 0,
       materials: prev?.materials ?? [{ materialId: material.id, quantity: 1 }],
       baseMaterialId: material.id,
+      price: prev?.price ?? 0,
     }
   })
   return [...others, ...generated]

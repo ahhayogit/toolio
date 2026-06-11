@@ -5,6 +5,7 @@ import { confirmDialog, notify } from '../lib/ui-store'
 import {
   MATERIAL_TYPES,
   MATERIAL_TYPE_LABELS,
+  defaultMaterialPrice,
   type Material,
   type MaterialType,
 } from '../types/model'
@@ -25,6 +26,8 @@ const MATERIAL_TYPE_ICONS: Record<MaterialType, string> = {
   maden: '⛏️',
   bitki: '🌿',
   cevher: '💎',
+  kumas: '🧵',
+  esya: '📦',
 }
 
 export function MaterialsTab() {
@@ -72,7 +75,8 @@ export function MaterialsTab() {
                   )}
                 </div>
                 <div className="text-xs text-slate-500">
-                  {MATERIAL_TYPE_LABELS[material.type]} · Lv {material.level} · {usedBy} item'da
+                  {MATERIAL_TYPE_LABELS[material.type]} · Lv {material.level} · 🪙 {material.price}{' '}
+                  · {usedBy} item'da
                 </div>
               </button>
               <Button
@@ -108,6 +112,16 @@ function MaterialForm({ initial, onClose }: { initial: Material | null; onClose:
   const [description, setDescription] = useState(initial?.description ?? '')
   const [level, setLevel] = useState(initial?.level ?? 1)
   const [isBaseMaterial, setIsBaseMaterial] = useState(initial?.isBaseMaterial ?? false)
+  const [price, setPrice] = useState(initial?.price ?? defaultMaterialPrice('maden'))
+
+  // Kumaş her zaman temel üretim materyalidir; toggle yerine kural geçerli.
+  const effectiveBase = type === 'kumas' ? true : isBaseMaterial
+
+  // Fiyat elle değiştirilmediyse tür değişince yeni türün varsayılanına geç.
+  const changeType = (t: MaterialType) => {
+    setPrice((p) => (p === defaultMaterialPrice(type) ? defaultMaterialPrice(t) : p))
+    setType(t)
+  }
 
   const save = () => {
     if (!name.trim()) {
@@ -120,11 +134,12 @@ function MaterialForm({ initial, onClose }: { initial: Material | null; onClose:
       type,
       description: description.trim(),
       level,
-      isBaseMaterial,
+      isBaseMaterial: effectiveBase,
+      price,
     }
     if (initial) updateMaterial(material)
     else addMaterial(material)
-    notify(isBaseMaterial ? 'Materyal kaydedildi (kıyafetler güncellendi).' : 'Materyal kaydedildi.')
+    notify(effectiveBase ? 'Materyal kaydedildi (kıyafetler güncellendi).' : 'Materyal kaydedildi.')
     onClose()
   }
 
@@ -149,22 +164,33 @@ function MaterialForm({ initial, onClose }: { initial: Material | null; onClose:
         <Field label="Tür">
           <SegmentedControl
             value={type}
-            onChange={setType}
+            onChange={changeType}
             options={MATERIAL_TYPES.map((t) => ({ value: t, label: MATERIAL_TYPE_LABELS[t] }))}
           />
         </Field>
 
-        <Field label="Seviye">
-          <NumberInput min={1} value={level} onChange={(e) => setLevel(Number(e.target.value))} />
-        </Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Seviye">
+            <NumberInput min={1} value={level} onChange={(e) => setLevel(Number(e.target.value))} />
+          </Field>
+          <Field label="Fiyat (altın)">
+            <NumberInput min={0} value={price} onChange={(e) => setPrice(Number(e.target.value))} />
+          </Field>
+        </div>
 
-        <Toggle
-          checked={isBaseMaterial}
-          onChange={setIsBaseMaterial}
-          label="Temel üretim materyali"
-          hint="Açıksa bu materyalin seviyesinde Eldiven/Pantolon/Ceket/Ayakkabı otomatik üretilir."
-        />
-        {isBaseMaterial && (
+        {type === 'kumas' ? (
+          <p className="rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-2 text-xs text-slate-300">
+            Kumaşlar her zaman <b>temel üretim materyali</b>dir.
+          </p>
+        ) : (
+          <Toggle
+            checked={isBaseMaterial}
+            onChange={setIsBaseMaterial}
+            label="Temel üretim materyali"
+            hint="Açıksa bu materyalin seviyesinde Eldiven/Pantolon/Ceket/Ayakkabı otomatik üretilir."
+          />
+        )}
+        {effectiveBase && (
           <p className="rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-xs text-sky-200">
             Kaydedince <b>{name.trim() || 'bu materyal'}</b> için Lv {level} 4 kıyafet item'ı
             (Eldiven, Pantolon, Ceket, Ayakkabı) otomatik oluşturulur/güncellenir. Item

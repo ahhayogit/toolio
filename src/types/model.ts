@@ -76,14 +76,20 @@ export type Area = z.infer<typeof areaSchema>
  * Material (üretim materyali) — item'ların yapımında kullanılır
  * -------------------------------------------------------------------------- */
 
-export const MATERIAL_TYPES = ['maden', 'bitki', 'cevher'] as const
+export const MATERIAL_TYPES = ['maden', 'bitki', 'cevher', 'kumas', 'esya'] as const
 export type MaterialType = (typeof MATERIAL_TYPES)[number]
 
 export const MATERIAL_TYPE_LABELS: Record<MaterialType, string> = {
   maden: 'Maden',
   bitki: 'Bitki',
   cevher: 'Cevher',
+  kumas: 'Kumaş',
+  esya: 'Eşya',
 }
+
+/** Materyal türüne göre varsayılan fiyat (altın): maden/bitki/cevher 10, diğerleri 0. */
+export const defaultMaterialPrice = (type: MaterialType): number =>
+  type === 'maden' || type === 'bitki' || type === 'cevher' ? 10 : 0
 
 export const materialSchema = z.object({
   id: z.string(),
@@ -93,8 +99,23 @@ export const materialSchema = z.object({
   level: z.number().min(1).default(1),
   // Açıkken bu materyal kendi level'inde 4 kıyafet item'ı (zırh hariç) üretir.
   isBaseMaterial: z.boolean().default(false),
+  price: z.number().min(0).default(0), // altın
 })
 export type Material = z.infer<typeof materialSchema>
+
+// Import/persist edilen veriyi normalize eder:
+// - Kumaş her zaman temel üretim materyalidir.
+// - Fiyatı olmayan eski kayıtlar tür varsayılanını alır (maden/bitki/cevher 10).
+const materialSchemaNormalized = z.preprocess((raw) => {
+  if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+    const m = { ...(raw as Record<string, unknown>) }
+    if (m.type === 'kumas') m.isBaseMaterial = true
+    if (typeof m.price !== 'number')
+      m.price = defaultMaterialPrice((m.type ?? 'maden') as MaterialType)
+    return m
+  }
+  return raw
+}, materialSchema)
 
 /* ----------------------------------------------------------------------------
  * Item (giyilebilir eşya) — şimdilik sadece zırh parçaları, silah yok
@@ -137,6 +158,7 @@ export const itemSchema = z.object({
   materials: z.array(itemMaterialSchema).default([]),
   // Bir temel materyalden otomatik üretildiyse o materyalin id'si; manuel item'larda null.
   baseMaterialId: z.string().nullable().default(null),
+  price: z.number().min(0).default(0), // altın
 })
 export type Item = z.infer<typeof itemSchema>
 
@@ -329,7 +351,7 @@ export const gameDataSchema = z.object({
   npcs: z.array(npcSchema).default([]),
   enemies: z.array(enemySchema).default([]),
   areas: z.array(areaSchema).default([]),
-  materials: z.array(materialSchema).default([]),
+  materials: z.array(materialSchemaNormalized).default([]),
   items: z.array(itemSchema).default([]),
   // Eski (çoklu-stat) efsun verisi yeni şemaya uymazsa tümünü düşür (diğer veriyi koru).
   affixes: z.array(affixSchema).catch([]),

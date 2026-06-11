@@ -83,7 +83,8 @@ export function ItemsTab() {
                     )}
                   </div>
                   <div className="text-xs text-slate-500">
-                    Lv {item.level} · 🛡 {item.armor} · {item.materials.length} materyal
+                    Lv {item.level} · 🛡 {item.armor} · 🪙 {item.price} · {item.materials.length}{' '}
+                    materyal
                   </div>
                 </button>
                 {item.baseMaterialId ? (
@@ -120,6 +121,7 @@ function ItemForm({ initial, onClose }: { initial: Item | null; onClose: () => v
   const [slot, setSlot] = useState<ItemSlot>(initial?.slot ?? 'gloves')
   const [level, setLevel] = useState(initial?.level ?? 1)
   const [armor, setArmor] = useState(initial?.armor ?? 0)
+  const [price, setPrice] = useState(initial?.price ?? 0)
   const [materials, setMaterials] = useState<ItemMaterial[]>(initial?.materials ?? [])
 
   const isGenerated = !!initial?.baseMaterialId
@@ -143,6 +145,7 @@ function ItemForm({ initial, onClose }: { initial: Item | null; onClose: () => v
       armor,
       materials: materials.filter((m) => m.materialId), // boş seçimleri at
       baseMaterialId: initial?.baseMaterialId ?? null, // üretilmişse kaynağı koru
+      price,
     }
     if (initial) updateItem(item)
     else addItem(item)
@@ -185,9 +188,18 @@ function ItemForm({ initial, onClose }: { initial: Item | null; onClose: () => v
                 <div className="text-slate-200">{level}</div>
               </div>
             </div>
-            <Field label="Zırh">
-              <NumberInput value={armor} onChange={(e) => setArmor(Number(e.target.value))} />
-            </Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Zırh">
+                <NumberInput value={armor} onChange={(e) => setArmor(Number(e.target.value))} />
+              </Field>
+              <Field label="Fiyat (altın)">
+                <NumberInput
+                  min={0}
+                  value={price}
+                  onChange={(e) => setPrice(Number(e.target.value))}
+                />
+              </Field>
+            </div>
           </>
         ) : (
           <>
@@ -217,6 +229,13 @@ function ItemForm({ initial, onClose }: { initial: Item | null; onClose: () => v
               </Field>
               <Field label="Zırh">
                 <NumberInput value={armor} onChange={(e) => setArmor(Number(e.target.value))} />
+              </Field>
+              <Field label="Fiyat (altın)">
+                <NumberInput
+                  min={0}
+                  value={price}
+                  onChange={(e) => setPrice(Number(e.target.value))}
+                />
               </Field>
             </div>
           </>
