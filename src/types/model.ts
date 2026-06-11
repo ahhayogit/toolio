@@ -55,6 +55,7 @@ export type Enemy = z.infer<typeof enemySchema>
 export const npcSchema = z.object({
   id: z.string(),
   name: z.string().min(1, 'İsim gerekli'),
+  level: z.number().min(1).default(1),
   dialogues: z.array(z.string()).default([]),
 })
 export type Npc = z.infer<typeof npcSchema>
@@ -71,6 +72,20 @@ export const areaSchema = z.object({
 export type Area = z.infer<typeof areaSchema>
 
 /* ----------------------------------------------------------------------------
+ * Material (üretim materyali) — item'ların yapımında kullanılır
+ * -------------------------------------------------------------------------- */
+
+export const materialSchema = z.object({
+  id: z.string(),
+  name: z.string().min(1, 'İsim gerekli'),
+  description: z.string().default(''),
+  level: z.number().min(1).default(1),
+  // Açıkken bu materyal kendi level'inde 4 kıyafet item'ı (zırh hariç) üretir.
+  isBaseMaterial: z.boolean().default(false),
+})
+export type Material = z.infer<typeof materialSchema>
+
+/* ----------------------------------------------------------------------------
  * Item (giyilebilir eşya) — şimdilik sadece zırh parçaları, silah yok
  * -------------------------------------------------------------------------- */
 
@@ -85,12 +100,22 @@ export const ITEM_SLOT_LABELS: Record<ItemSlot, string> = {
   armor: 'Zırh', // gövde zırhı / kalkan gibi
 }
 
+// Bir item'ın yapımında gereken materyal + miktar
+export const itemMaterialSchema = z.object({
+  materialId: z.string(),
+  quantity: z.number().min(1).default(1),
+})
+export type ItemMaterial = z.infer<typeof itemMaterialSchema>
+
 export const itemSchema = z.object({
   id: z.string(),
   name: z.string().min(1, 'İsim gerekli'),
   slot: z.enum(ITEM_SLOTS),
   level: z.number().min(1).default(1),
   armor: z.number().min(0).default(0),
+  materials: z.array(itemMaterialSchema).default([]),
+  // Bir temel materyalden otomatik üretildiyse o materyalin id'si; manuel item'larda null.
+  baseMaterialId: z.string().nullable().default(null),
 })
 export type Item = z.infer<typeof itemSchema>
 
@@ -128,11 +153,15 @@ export const defaultObjective = (type: QuestType): Objective => {
 export const questSchema = z.object({
   id: z.string(),
   title: z.string().min(1, 'Başlık gerekli'),
+  description: z.string().default(''),
   giverNpcId: z.string().default(''),
   requiredLevel: z.number().min(1).default(1),
   dependsOnQuestId: z.string().nullable().default(null),
   rewardExp: z.number().min(0).default(0),
+  // Ödül ya bir item ya da bir materyaldir (ikisi birden değil); ikisi de null olabilir.
   rewardItemId: z.string().nullable().default(null),
+  rewardMaterialId: z.string().nullable().default(null),
+  rewardQuantity: z.number().min(1).default(1),
   objective: objectiveSchema,
 })
 export type Quest = z.infer<typeof questSchema>
@@ -146,6 +175,7 @@ export const gameDataSchema = z.object({
   npcs: z.array(npcSchema).default([]),
   enemies: z.array(enemySchema).default([]),
   areas: z.array(areaSchema).default([]),
+  materials: z.array(materialSchema).default([]),
   items: z.array(itemSchema).default([]),
   quests: z.array(questSchema).default([]),
 })
@@ -156,6 +186,7 @@ export const emptyGameData = (): GameData => ({
   npcs: [],
   enemies: [],
   areas: [],
+  materials: [],
   items: [],
   quests: [],
 })

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useStore } from '../store'
 import { newId } from '../lib/id'
 import { type Npc } from '../types/model'
-import { Button, EmptyState, Field, Modal, TextArea, TextInput } from './ui'
+import { Button, EmptyState, Field, Modal, NumberInput, TextArea, TextInput } from './ui'
 
 export function NpcsTab() {
   const npcs = useStore((s) => s.npcs)
@@ -29,7 +29,8 @@ export function NpcsTab() {
               <button className="flex-1 text-left" onClick={() => setEditing(npc)}>
                 <div className="font-medium text-slate-100">{npc.name}</div>
                 <div className="text-xs text-slate-500">
-                  {npc.dialogues.length} replik · {givenQuests.length} görev verir · {npc.id}
+                  Lv {npc.level} · {npc.dialogues.length} replik · {givenQuests.length} görev verir ·{' '}
+                  {npc.id}
                 </div>
               </button>
               <Button
@@ -60,6 +61,7 @@ function NpcForm({ initial, onClose }: { initial: Npc | null; onClose: () => voi
   const updateNpc = useStore((s) => s.updateNpc)
 
   const [name, setName] = useState(initial?.name ?? '')
+  const [level, setLevel] = useState(initial?.level ?? 1)
   const [dialogues, setDialogues] = useState<string[]>(initial?.dialogues ?? [''])
 
   const save = () => {
@@ -67,6 +69,7 @@ function NpcForm({ initial, onClose }: { initial: Npc | null; onClose: () => voi
     const npc: Npc = {
       id: initial?.id ?? newId('npc'),
       name: name.trim(),
+      level,
       dialogues: cleanedDialogues,
     }
     if (!npc.name) {
@@ -94,6 +97,10 @@ function NpcForm({ initial, onClose }: { initial: Npc | null; onClose: () => voi
       <div className="flex flex-col gap-4">
         <Field label="İsim">
           <TextInput value={name} onChange={(e) => setName(e.target.value)} placeholder="Örn: Demirci Hasan" />
+        </Field>
+
+        <Field label="Seviye">
+          <NumberInput min={1} value={level} onChange={(e) => setLevel(Number(e.target.value))} />
         </Field>
 
         <div className="flex flex-col gap-2">

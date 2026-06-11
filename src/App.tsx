@@ -2,14 +2,16 @@ import { useMemo, useRef, useState } from 'react'
 import { useStore } from './store'
 import { downloadJson, parseJsonFile } from './lib/io'
 import { findIssues } from './lib/validate'
+import { objectiveSummary } from './lib/summary'
 import { Button } from './components/ui'
 import { NpcsTab } from './components/NpcsTab'
 import { EnemiesTab } from './components/EnemiesTab'
 import { AreasTab } from './components/AreasTab'
+import { MaterialsTab } from './components/MaterialsTab'
 import { ItemsTab } from './components/ItemsTab'
 import { QuestsTab } from './components/QuestsTab'
 
-type Tab = 'npcs' | 'enemies' | 'areas' | 'items' | 'quests'
+type Tab = 'npcs' | 'enemies' | 'areas' | 'materials' | 'items' | 'quests'
 
 export default function App() {
   const [tab, setTab] = useState<Tab>('npcs')
@@ -18,6 +20,7 @@ export default function App() {
   const npcs = useStore((s) => s.npcs)
   const enemies = useStore((s) => s.enemies)
   const areas = useStore((s) => s.areas)
+  const materials = useStore((s) => s.materials)
   const items = useStore((s) => s.items)
   const quests = useStore((s) => s.quests)
   const exportData = useStore((s) => s.exportData)
@@ -25,11 +28,22 @@ export default function App() {
   const resetAll = useStore((s) => s.resetAll)
 
   const issues = useMemo(
-    () => findIssues({ version: 1, npcs, enemies, areas, items, quests }),
-    [npcs, enemies, areas, items, quests],
+    () => findIssues({ version: 1, npcs, enemies, areas, materials, items, quests }),
+    [npcs, enemies, areas, materials, items, quests],
   )
 
-  const handleExport = () => downloadJson(exportData())
+  const handleExport = () => {
+    const data = exportData()
+    // Her göreve okunabilir otomatik özeti de ekleyerek dışa aktar.
+    const withSummary = {
+      ...data,
+      quests: data.quests.map((q) => ({
+        ...q,
+        summary: objectiveSummary(q.objective, data),
+      })),
+    }
+    downloadJson(withSummary)
+  }
 
   const handleImport = async (file: File) => {
     try {
@@ -45,6 +59,7 @@ export default function App() {
     { key: 'npcs', label: 'NPC', count: npcs.length },
     { key: 'enemies', label: 'Düşman', count: enemies.length },
     { key: 'areas', label: 'Bölge', count: areas.length },
+    { key: 'materials', label: 'Materyal', count: materials.length },
     { key: 'items', label: 'Item', count: items.length },
     { key: 'quests', label: 'Görev', count: quests.length },
   ]
@@ -82,12 +97,12 @@ export default function App() {
       </header>
 
       {/* Sekmeler */}
-      <nav className="flex border-b border-slate-800 px-1">
+      <nav className="flex overflow-x-auto border-b border-slate-800 px-1">
         {tabs.map((t) => (
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
-            className={`flex-1 whitespace-nowrap border-b-2 px-1 py-3 text-sm font-medium transition-colors ${
+            className={`min-w-[4.5rem] flex-1 whitespace-nowrap border-b-2 px-2 py-3 text-sm font-medium transition-colors ${
               tab === t.key
                 ? 'border-sky-400 text-sky-400'
                 : 'border-transparent text-slate-400 hover:text-slate-200'
@@ -116,6 +131,7 @@ export default function App() {
         {tab === 'npcs' && <NpcsTab />}
         {tab === 'enemies' && <EnemiesTab />}
         {tab === 'areas' && <AreasTab />}
+        {tab === 'materials' && <MaterialsTab />}
         {tab === 'items' && <ItemsTab />}
         {tab === 'quests' && <QuestsTab />}
       </main>
