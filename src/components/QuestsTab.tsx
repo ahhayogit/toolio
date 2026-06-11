@@ -87,6 +87,7 @@ function QuestForm({ initial, onClose }: { initial: Quest | null; onClose: () =>
   const areas = useStore((s) => s.areas)
   const items = useStore((s) => s.items)
   const materials = useStore((s) => s.materials)
+  const affixes = useStore((s) => s.affixes)
   const quests = useStore((s) => s.quests)
   const addQuest = useStore((s) => s.addQuest)
   const updateQuest = useStore((s) => s.updateQuest)
@@ -104,16 +105,38 @@ function QuestForm({ initial, onClose }: { initial: Quest | null; onClose: () =>
   const [rewardMaterialId, setRewardMaterialId] = useState<string | null>(
     initial?.rewardMaterialId ?? null,
   )
+  const [rewardPrefixId, setRewardPrefixId] = useState<string | null>(
+    initial?.rewardPrefixId ?? null,
+  )
+  const [rewardSuffixId, setRewardSuffixId] = useState<string | null>(
+    initial?.rewardSuffixId ?? null,
+  )
   const [rewardQuantity, setRewardQuantity] = useState(initial?.rewardQuantity ?? 1)
   const [rewardKind, setRewardKind] = useState<RewardKind>(
     initial?.rewardItemId ? 'item' : initial?.rewardMaterialId ? 'material' : 'none',
   )
 
-  // Ödül türü değişince diğer referansı temizle (ödül ya item ya materyal).
+  // Ödül türü değişince diğer referansları temizle (ödül ya item ya materyal).
   const changeRewardKind = (k: RewardKind) => {
     setRewardKind(k)
-    if (k !== 'item') setRewardItemId(null)
+    if (k !== 'item') {
+      setRewardItemId(null)
+      setRewardPrefixId(null)
+      setRewardSuffixId(null)
+    }
     if (k !== 'material') setRewardMaterialId(null)
+  }
+
+  // Ödül item'ı değişince, item'ın seviyesiyle uyuşmayan ekleri temizle.
+  const onRewardItemChange = (newId: string | null) => {
+    setRewardItemId(newId)
+    const lvl = items.find((it) => it.id === newId)?.level ?? null
+    if (rewardPrefixId && affixes.find((a) => a.id === rewardPrefixId)?.level !== lvl) {
+      setRewardPrefixId(null)
+    }
+    if (rewardSuffixId && affixes.find((a) => a.id === rewardSuffixId)?.level !== lvl) {
+      setRewardSuffixId(null)
+    }
   }
   const rewardKindOptions: { value: RewardKind; label: string }[] = [
     { value: 'none', label: 'Yok' },
@@ -126,6 +149,28 @@ function QuestForm({ initial, onClose }: { initial: Quest | null; onClose: () =>
 
   // Bağımlılık seçiminde kendisini ve döngü oluşturmamak için sadece diğer görevler.
   const dependencyOptions = quests.filter((q) => q.id !== id)
+
+  // Ödül item'ı ve seviye-eşleşen ek seçenekleri.
+  const rewardItem = items.find((it) => it.id === rewardItemId) ?? null
+  const itemLevel = rewardItem?.level ?? null
+  const prefixOptions = affixes.filter((a) => a.kind === 'prefix' && a.level === itemLevel)
+  const suffixOptions = affixes.filter((a) => a.kind === 'suffix' && a.level === itemLevel)
+  const composedRewardName = [
+    affixes.find((a) => a.id === rewardPrefixId)?.name,
+    affixes.find((a) => a.id === rewardSuffixId)?.name,
+    rewardItem?.name,
+  ]
+    .filter(Boolean)
+    .join(' ')
+
+  // Efsun (ek) sayısına göre önizleme rengi: tek efsun mavi, çift efsun sarı.
+  const rewardAffixCount = (rewardPrefixId ? 1 : 0) + (rewardSuffixId ? 1 : 0)
+  const rewardNameColor =
+    rewardAffixCount === 2
+      ? 'text-yellow-300'
+      : rewardAffixCount === 1
+        ? 'text-sky-300'
+        : 'text-slate-200'
 
   const save = () => {
     if (!title.trim()) {
@@ -142,6 +187,8 @@ function QuestForm({ initial, onClose }: { initial: Quest | null; onClose: () =>
       rewardExp,
       rewardItemId,
       rewardMaterialId,
+      rewardPrefixId,
+      rewardSuffixId,
       rewardQuantity,
       objective,
     }
@@ -211,17 +258,44 @@ function QuestForm({ initial, onClose }: { initial: Quest | null; onClose: () =>
         {rewardKind === 'item' && (
           <Combobox
             value={rewardItemId}
-            onChange={setRewardItemId}
+            onChange={onRewardItemChange}
             options={items.map((it) => ({
               value: it.id,
               label: it.name,
-              hint: ITEM_SLOT_LABELS[it.slot],
+              hint: `${ITEM_SLOT_LABELS[it.slot]} · Lv ${it.level}`,
             }))}
             placeholder="— item seç —"
             noneLabel="— item seç —"
             searchPlaceholder="Item ara..."
             emptyText="Item bulunamadı"
           />
+        )}
+
+        {rewardKind === 'item' && rewardItemId && (
+          <>
+            <Field label="Ön ek" hint={`Yalnızca Lv ${itemLevel} ön ekler (item ile aynı seviye).`}>
+              <Combobox
+                value={rewardPrefixId}
+                onChange={setRewardPrefixId}
+                options={prefixOptions.map((a) => ({ value: a.id, label: a.name }))}
+                placeholder="— ön ek yok —"
+                noneLabel="— ön ek yok —"
+                searchPlaceholder="Ön ek ara..."
+                emptyText={`Lv ${itemLevel} ön ek yok`}
+              />
+            </Field>
+            <Field label="Son ek" hint={`Yalnızca Lv ${itemLevel} son ekler.`}>
+              <Combobox
+                value={rewardSuffixId}
+                onChange={setRewardSuffixId}
+                options={suffixOptions.map((a) => ({ value: a.id, label: a.name }))}
+                placeholder="— son ek yok —"
+                noneLabel="— son ek yok —"
+                searchPlaceholder="Son ek ara..."
+                emptyText={`Lv ${itemLevel} son ek yok`}
+              />
+            </Field>
+          </>
         )}
 
         {rewardKind === 'material' && (
@@ -249,6 +323,15 @@ function QuestForm({ initial, onClose }: { initial: Quest | null; onClose: () =>
                 value={rewardQuantity}
                 onChange={(e) => setRewardQuantity(Number(e.target.value))}
               />
+            </div>
+          </div>
+        )}
+
+        {rewardKind === 'item' && rewardItemId && (
+          <div className="rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-2">
+            <div className="text-xs text-slate-500">Ödül</div>
+            <div className={`text-sm ${rewardNameColor}`}>
+              {composedRewardName} ×{rewardQuantity}
             </div>
           </div>
         )}

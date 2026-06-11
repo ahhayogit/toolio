@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware'
 import { newId } from './lib/id'
 import {
   ITEM_SLOT_LABELS,
+  type Affix,
   type Area,
   type Enemy,
   type GameData,
@@ -65,6 +66,10 @@ interface Actions {
   addItem: (item: Item) => void
   updateItem: (item: Item) => void
   deleteItem: (id: string) => void
+  // Affix (ön ek / son ek)
+  addAffix: (affix: Affix) => void
+  updateAffix: (affix: Affix) => void
+  deleteAffix: (id: string) => void
   // Quest
   addQuest: (quest: Quest) => void
   updateQuest: (quest: Quest) => void
@@ -119,6 +124,11 @@ export const useStore = create<Store>()(
         set((s) => ({ items: s.items.map((i) => (i.id === item.id ? item : i)) })),
       deleteItem: (id) => set((s) => ({ items: s.items.filter((i) => i.id !== id) })),
 
+      addAffix: (affix) => set((s) => ({ affixes: [...s.affixes, affix] })),
+      updateAffix: (affix) =>
+        set((s) => ({ affixes: s.affixes.map((a) => (a.id === affix.id ? affix : a)) })),
+      deleteAffix: (id) => set((s) => ({ affixes: s.affixes.filter((a) => a.id !== id) })),
+
       addQuest: (quest) => set((s) => ({ quests: [...s.quests, quest] })),
       updateQuest: (quest) =>
         set((s) => ({ quests: s.quests.map((q) => (q.id === quest.id ? quest : q)) })),
@@ -138,11 +148,12 @@ export const useStore = create<Store>()(
           areas: data.areas,
           materials: data.materials,
           items: data.items,
+          affixes: data.affixes,
           quests: data.quests,
         }),
       exportData: () => {
-        const { version, npcs, enemies, areas, materials, items, quests } = get()
-        return { version, npcs, enemies, areas, materials, items, quests }
+        const { version, npcs, enemies, areas, materials, items, affixes, quests } = get()
+        return { version, npcs, enemies, areas, materials, items, affixes, quests }
       },
       resetAll: () => set(emptyGameData()),
     }),
@@ -156,6 +167,7 @@ export const useStore = create<Store>()(
         areas: s.areas,
         materials: s.materials,
         items: s.items,
+        affixes: s.affixes,
         quests: s.quests,
       }),
       // Eski/eksik kayıtlı veriyi şemadan geçirip varsayılanları doldur

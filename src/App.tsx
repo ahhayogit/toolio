@@ -9,9 +9,10 @@ import { EnemiesTab } from './components/EnemiesTab'
 import { AreasTab } from './components/AreasTab'
 import { MaterialsTab } from './components/MaterialsTab'
 import { ItemsTab } from './components/ItemsTab'
+import { AffixesTab } from './components/AffixesTab'
 import { QuestsTab } from './components/QuestsTab'
 
-type Tab = 'npcs' | 'enemies' | 'areas' | 'materials' | 'items' | 'quests'
+type Tab = 'npcs' | 'enemies' | 'areas' | 'materials' | 'items' | 'affixes' | 'quests'
 
 export default function App() {
   const [tab, setTab] = useState<Tab>('npcs')
@@ -22,14 +23,15 @@ export default function App() {
   const areas = useStore((s) => s.areas)
   const materials = useStore((s) => s.materials)
   const items = useStore((s) => s.items)
+  const affixes = useStore((s) => s.affixes)
   const quests = useStore((s) => s.quests)
   const exportData = useStore((s) => s.exportData)
   const loadData = useStore((s) => s.loadData)
   const resetAll = useStore((s) => s.resetAll)
 
   const issues = useMemo(
-    () => findIssues({ version: 1, npcs, enemies, areas, materials, items, quests }),
-    [npcs, enemies, areas, materials, items, quests],
+    () => findIssues({ version: 1, npcs, enemies, areas, materials, items, affixes, quests }),
+    [npcs, enemies, areas, materials, items, affixes, quests],
   )
 
   const handleExport = () => {
@@ -61,6 +63,7 @@ export default function App() {
     { key: 'areas', label: 'Bölge', count: areas.length },
     { key: 'materials', label: 'Materyal', count: materials.length },
     { key: 'items', label: 'Item', count: items.length },
+    { key: 'affixes', label: 'Ek', count: affixes.length },
     { key: 'quests', label: 'Görev', count: quests.length },
   ]
 
@@ -133,6 +136,7 @@ export default function App() {
         {tab === 'areas' && <AreasTab />}
         {tab === 'materials' && <MaterialsTab />}
         {tab === 'items' && <ItemsTab />}
+        {tab === 'affixes' && <AffixesTab />}
         {tab === 'quests' && <QuestsTab />}
       </main>
 

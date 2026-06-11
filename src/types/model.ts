@@ -89,7 +89,15 @@ export type Material = z.infer<typeof materialSchema>
  * Item (giyilebilir eşya) — şimdilik sadece zırh parçaları, silah yok
  * -------------------------------------------------------------------------- */
 
-export const ITEM_SLOTS = ['gloves', 'pants', 'jacket', 'shoes', 'armor'] as const
+export const ITEM_SLOTS = [
+  'gloves',
+  'pants',
+  'jacket',
+  'shoes',
+  'armor',
+  'ring',
+  'necklace',
+] as const
 export type ItemSlot = (typeof ITEM_SLOTS)[number]
 
 export const ITEM_SLOT_LABELS: Record<ItemSlot, string> = {
@@ -98,6 +106,8 @@ export const ITEM_SLOT_LABELS: Record<ItemSlot, string> = {
   jacket: 'Ceket',
   shoes: 'Ayakkabı',
   armor: 'Zırh', // gövde zırhı / kalkan gibi
+  ring: 'Yüzük',
+  necklace: 'Kolye',
 }
 
 // Bir item'ın yapımında gereken materyal + miktar
@@ -118,6 +128,49 @@ export const itemSchema = z.object({
   baseMaterialId: z.string().nullable().default(null),
 })
 export type Item = z.infer<typeof itemSchema>
+
+/* ----------------------------------------------------------------------------
+ * Affix (ön ek / son ek) — item'lara uygulanır. Etkiler sonra tanımlanacak.
+ * Örn: "buz hasarlı" (ön ek), "zehir dirençli" (son ek)
+ * -------------------------------------------------------------------------- */
+
+export const AFFIX_KINDS = ['prefix', 'suffix'] as const
+export type AffixKind = (typeof AFFIX_KINDS)[number]
+
+export const AFFIX_KIND_LABELS: Record<AffixKind, string> = {
+  prefix: 'Ön ek',
+  suffix: 'Son ek',
+}
+
+// Elemental gruplar (fiziksel hasar, büyü hasarı, direnç) hepsi 5 element içerir
+// ve resistancesSchema ile aynı şekle sahiptir. Eksikse hepsi 0'a düşer.
+const elementalSchema = resistancesSchema.default({})
+
+export const affixSchema = z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.literal('prefix'),
+    id: z.string(),
+    name: z.string().min(1, 'İsim gerekli'),
+    level: z.number().min(1).default(1),
+    description: z.string().default(''),
+    physicalDamage: elementalSchema, // fiziksel hasar (ateş/buz/elektrik/zehir/asit)
+    magicDamage: elementalSchema, // büyü hasarı (ateş/buz/elektrik/zehir/asit)
+    maxHealth: z.number().default(0), // maksimum can
+  }),
+  z.object({
+    kind: z.literal('suffix'),
+    id: z.string(),
+    name: z.string().min(1, 'İsim gerekli'),
+    level: z.number().min(1).default(1),
+    description: z.string().default(''),
+    attack: z.number().default(0), // saldırı değeri (float)
+    defense: z.number().default(0), // savunma değeri (float)
+    maxMana: z.number().default(0), // maksimum mana (kudret)
+    resistance: elementalSchema, // direnç (ateş/buz/elektrik/zehir/asit)
+    armor: z.number().default(0), // zırh (float)
+  }),
+])
+export type Affix = z.infer<typeof affixSchema>
 
 /* ----------------------------------------------------------------------------
  * Quest (görev) + hedef tipleri (objective)
@@ -161,6 +214,9 @@ export const questSchema = z.object({
   // Ödül ya bir item ya da bir materyaldir (ikisi birden değil); ikisi de null olabilir.
   rewardItemId: z.string().nullable().default(null),
   rewardMaterialId: z.string().nullable().default(null),
+  // Ödül item'ına uygulanan ekler (item ile aynı seviyede olmalı).
+  rewardPrefixId: z.string().nullable().default(null),
+  rewardSuffixId: z.string().nullable().default(null),
   rewardQuantity: z.number().min(1).default(1),
   objective: objectiveSchema,
 })
@@ -177,6 +233,7 @@ export const gameDataSchema = z.object({
   areas: z.array(areaSchema).default([]),
   materials: z.array(materialSchema).default([]),
   items: z.array(itemSchema).default([]),
+  affixes: z.array(affixSchema).default([]),
   quests: z.array(questSchema).default([]),
 })
 export type GameData = z.infer<typeof gameDataSchema>
@@ -188,5 +245,6 @@ export const emptyGameData = (): GameData => ({
   areas: [],
   materials: [],
   items: [],
+  affixes: [],
   quests: [],
 })
