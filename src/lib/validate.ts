@@ -1,4 +1,4 @@
-import type { GameData } from '../types/model'
+import { type GameData, affixKind } from '../types/model'
 
 export interface Issue {
   questId?: string
@@ -53,7 +53,7 @@ export function findIssues(data: GameData): Issue[] {
       const checkAffix = (affixId: string | null, kind: 'prefix' | 'suffix', adi: string) => {
         if (!affixId) return
         const affix = affixById.get(affixId)
-        if (!affix || affix.kind !== kind) {
+        if (!affix || affixKind(affix) !== kind) {
           issues.push({ questId: q.id, message: `"${label}" ödül ${adi} tanımlı değil` })
         } else if (affix.level !== rItem.level) {
           issues.push({ questId: q.id, message: `"${label}" ödül ${adi} item ile aynı seviyede değil` })

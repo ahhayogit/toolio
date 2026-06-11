@@ -141,8 +141,9 @@ export const itemSchema = z.object({
 export type Item = z.infer<typeof itemSchema>
 
 /* ----------------------------------------------------------------------------
- * Affix (ön ek / son ek) — item'lara uygulanır. Etkiler sonra tanımlanacak.
- * Örn: "buz hasarlı" (ön ek), "zehir dirençli" (son ek)
+ * Affix (efsun / ön ek / son ek) — item'lara uygulanır.
+ * Her efsun TEK bir statı belirli bir değerle artırır; stat türü ön/son eki belirler.
+ * Örn: "Buz Hasarı Veren" (ön ek, hasarIce), "Ateş Direnci Artırıcı" (son ek, resistFire)
  * -------------------------------------------------------------------------- */
 
 export const AFFIX_KINDS = ['prefix', 'suffix'] as const
@@ -153,35 +154,82 @@ export const AFFIX_KIND_LABELS: Record<AffixKind, string> = {
   suffix: 'Son ek',
 }
 
-// Elemental gruplar (fiziksel hasar, büyü hasarı, direnç) hepsi 5 element içerir
-// ve resistancesSchema ile aynı şekle sahiptir. Eksikse hepsi 0'a düşer.
-const elementalSchema = resistancesSchema.default({})
+// Tüm efsun stat türleri. Sıra, formdaki gösterim sırasıdır.
+export const AFFIX_STAT_KEYS = [
+  // Ön ek — hasar
+  'hasarFire',
+  'hasarIce',
+  'hasarElectric',
+  'hasarAcid',
+  'hasarPoison',
+  'magicPhysical',
+  'magicFire',
+  'magicIce',
+  'magicElectric',
+  'magicAcid',
+  'magicPoison',
+  'maxDamage',
+  // Son ek
+  'attack',
+  'defense',
+  'armor',
+  'resistFire',
+  'resistIce',
+  'resistElectric',
+  'resistAcid',
+  'resistPoison',
+  'maxKudret',
+  'maxEnergy',
+  'healing',
+  'critChance',
+  'magicCrit',
+  'moveSpeed',
+  'critArmor',
+] as const
+export type AffixStat = (typeof AFFIX_STAT_KEYS)[number]
 
-export const affixSchema = z.discriminatedUnion('kind', [
-  z.object({
-    kind: z.literal('prefix'),
-    id: z.string(),
-    name: z.string().min(1, 'İsim gerekli'),
-    level: z.number().min(1).default(1),
-    description: z.string().default(''),
-    physicalDamage: elementalSchema, // fiziksel hasar (ateş/buz/elektrik/zehir/asit)
-    magicDamage: elementalSchema, // büyü hasarı (ateş/buz/elektrik/zehir/asit)
-    maxHealth: z.number().default(0), // maksimum can
-  }),
-  z.object({
-    kind: z.literal('suffix'),
-    id: z.string(),
-    name: z.string().min(1, 'İsim gerekli'),
-    level: z.number().min(1).default(1),
-    description: z.string().default(''),
-    attack: z.number().default(0), // saldırı değeri (float)
-    defense: z.number().default(0), // savunma değeri (float)
-    maxMana: z.number().default(0), // maksimum mana (kudret)
-    resistance: elementalSchema, // direnç (ateş/buz/elektrik/zehir/asit)
-    armor: z.number().default(0), // zırh (float)
-  }),
-])
+export const AFFIX_STAT_DEFS: Record<AffixStat, { label: string; kind: AffixKind }> = {
+  hasarFire: { label: 'Ateş hasarı', kind: 'prefix' },
+  hasarIce: { label: 'Buz hasarı', kind: 'prefix' },
+  hasarElectric: { label: 'Elektrik hasarı', kind: 'prefix' },
+  hasarAcid: { label: 'Asit hasarı', kind: 'prefix' },
+  hasarPoison: { label: 'Zehir hasarı', kind: 'prefix' },
+  magicPhysical: { label: 'Büyü hasarı (Fiziksel)', kind: 'prefix' },
+  magicFire: { label: 'Büyü hasarı (Ateş)', kind: 'prefix' },
+  magicIce: { label: 'Büyü hasarı (Buz)', kind: 'prefix' },
+  magicElectric: { label: 'Büyü hasarı (Elektrik)', kind: 'prefix' },
+  magicAcid: { label: 'Büyü hasarı (Asit)', kind: 'prefix' },
+  magicPoison: { label: 'Büyü hasarı (Zehir)', kind: 'prefix' },
+  maxDamage: { label: 'Maksimum hasar', kind: 'prefix' },
+  attack: { label: 'Saldırı', kind: 'suffix' },
+  defense: { label: 'Savunma', kind: 'suffix' },
+  armor: { label: 'Zırh', kind: 'suffix' },
+  resistFire: { label: 'Ateş direnci', kind: 'suffix' },
+  resistIce: { label: 'Buz direnci', kind: 'suffix' },
+  resistElectric: { label: 'Elektrik direnci', kind: 'suffix' },
+  resistAcid: { label: 'Asit direnci', kind: 'suffix' },
+  resistPoison: { label: 'Zehir direnci', kind: 'suffix' },
+  maxKudret: { label: 'Maksimum kudret', kind: 'suffix' },
+  maxEnergy: { label: 'Maksimum enerji', kind: 'suffix' },
+  healing: { label: 'İyileştirme', kind: 'suffix' },
+  critChance: { label: 'Kritik vuruş ihtimali', kind: 'suffix' },
+  magicCrit: { label: 'Büyü kritik şansı', kind: 'suffix' },
+  moveSpeed: { label: 'Hareket hızı', kind: 'suffix' },
+  critArmor: { label: 'Kritik zırhı', kind: 'suffix' },
+}
+
+export const affixSchema = z.object({
+  id: z.string(),
+  name: z.string().min(1, 'İsim gerekli'),
+  stat: z.enum(AFFIX_STAT_KEYS),
+  value: z.number().default(0),
+  level: z.number().min(1).default(1),
+})
 export type Affix = z.infer<typeof affixSchema>
+
+/** Bir efsunun ön ek mi son ek mi olduğu, statından türetilir. */
+export const affixKind = (affix: Affix): AffixKind =>
+  AFFIX_STAT_DEFS[affix.stat]?.kind ?? 'suffix'
 
 /* ----------------------------------------------------------------------------
  * Quest (görev) + hedef tipleri (objective)
@@ -283,7 +331,8 @@ export const gameDataSchema = z.object({
   areas: z.array(areaSchema).default([]),
   materials: z.array(materialSchema).default([]),
   items: z.array(itemSchema).default([]),
-  affixes: z.array(affixSchema).default([]),
+  // Eski (çoklu-stat) efsun verisi yeni şemaya uymazsa tümünü düşür (diğer veriyi koru).
+  affixes: z.array(affixSchema).catch([]),
   quests: z.array(questSchemaCompat).default([]),
 })
 export type GameData = z.infer<typeof gameDataSchema>

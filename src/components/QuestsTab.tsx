@@ -14,6 +14,7 @@ import {
   type Quest,
   type QuestReward,
   type QuestType,
+  affixKind,
   defaultObjective,
 } from '../types/model'
 import {
@@ -322,8 +323,8 @@ function RewardRow({
   // Item ödülü
   const item = items.find((it) => it.id === reward.itemId) ?? null
   const itemLevel = item?.level ?? null
-  const prefixOptions = affixes.filter((a) => a.kind === 'prefix' && a.level === itemLevel)
-  const suffixOptions = affixes.filter((a) => a.kind === 'suffix' && a.level === itemLevel)
+  const prefixOptions = affixes.filter((a) => affixKind(a) === 'prefix' && a.level === itemLevel)
+  const suffixOptions = affixes.filter((a) => affixKind(a) === 'suffix' && a.level === itemLevel)
   const composed = [
     affixes.find((a) => a.id === reward.prefixId)?.name,
     affixes.find((a) => a.id === reward.suffixId)?.name,

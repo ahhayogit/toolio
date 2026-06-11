@@ -66,8 +66,9 @@ interface Actions {
   addItem: (item: Item) => void
   updateItem: (item: Item) => void
   deleteItem: (id: string) => void
-  // Affix (ön ek / son ek)
+  // Affix (efsun / ön ek / son ek)
   addAffix: (affix: Affix) => void
+  setAffixes: (affixes: Affix[]) => void
   updateAffix: (affix: Affix) => void
   deleteAffix: (id: string) => void
   // Quest
@@ -125,6 +126,7 @@ export const useStore = create<Store>()(
       deleteItem: (id) => set((s) => ({ items: s.items.filter((i) => i.id !== id) })),
 
       addAffix: (affix) => set((s) => ({ affixes: [...s.affixes, affix] })),
+      setAffixes: (list) => set({ affixes: list }),
       updateAffix: (affix) =>
         set((s) => ({ affixes: s.affixes.map((a) => (a.id === affix.id ? affix : a)) })),
       deleteAffix: (id) => set((s) => ({ affixes: s.affixes.filter((a) => a.id !== id) })),
