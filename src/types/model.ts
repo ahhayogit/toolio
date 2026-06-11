@@ -203,6 +203,23 @@ export const defaultObjective = (type: QuestType): Objective => {
   }
 }
 
+// Tek bir ödül girişi: ya item (opsiyonel ön/son ek + adet) ya materyal (adet).
+export const questRewardSchema = z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.literal('item'),
+    itemId: z.string(),
+    prefixId: z.string().nullable().default(null), // ön ek (item ile aynı seviye)
+    suffixId: z.string().nullable().default(null), // son ek (item ile aynı seviye)
+    quantity: z.number().min(1).default(1),
+  }),
+  z.object({
+    kind: z.literal('material'),
+    materialId: z.string(),
+    quantity: z.number().min(1).default(1),
+  }),
+])
+export type QuestReward = z.infer<typeof questRewardSchema>
+
 export const questSchema = z.object({
   id: z.string(),
   title: z.string().min(1, 'Başlık gerekli'),
@@ -211,16 +228,38 @@ export const questSchema = z.object({
   requiredLevel: z.number().min(1).default(1),
   dependsOnQuestId: z.string().nullable().default(null),
   rewardExp: z.number().min(0).default(0),
-  // Ödül ya bir item ya da bir materyaldir (ikisi birden değil); ikisi de null olabilir.
-  rewardItemId: z.string().nullable().default(null),
-  rewardMaterialId: z.string().nullable().default(null),
-  // Ödül item'ına uygulanan ekler (item ile aynı seviyede olmalı).
-  rewardPrefixId: z.string().nullable().default(null),
-  rewardSuffixId: z.string().nullable().default(null),
-  rewardQuantity: z.number().min(1).default(1),
+  // Ödül olarak birden fazla item ve/veya materyal birlikte verilebilir.
+  rewards: z.array(questRewardSchema).default([]),
   objective: objectiveSchema,
 })
 export type Quest = z.infer<typeof questSchema>
+
+// Eski tek-ödül alanlarını (rewardItemId/rewardMaterialId vb.) yeni `rewards`
+// dizisine taşıyan geriye dönük uyumluluk katmanı (persist & JSON import için).
+const questSchemaCompat = z.preprocess((raw) => {
+  if (raw && typeof raw === 'object' && !Array.isArray(raw) && !('rewards' in raw)) {
+    const r = raw as Record<string, unknown>
+    const rewards: unknown[] = []
+    if (r.rewardItemId) {
+      rewards.push({
+        kind: 'item',
+        itemId: r.rewardItemId,
+        prefixId: r.rewardPrefixId ?? null,
+        suffixId: r.rewardSuffixId ?? null,
+        quantity: r.rewardQuantity ?? 1,
+      })
+    }
+    if (r.rewardMaterialId) {
+      rewards.push({
+        kind: 'material',
+        materialId: r.rewardMaterialId,
+        quantity: r.rewardQuantity ?? 1,
+      })
+    }
+    return { ...r, rewards }
+  }
+  return raw
+}, questSchema)
 
 /* ----------------------------------------------------------------------------
  * Tüm oyun verisi (export edilen JSON'un kökü)
@@ -234,7 +273,7 @@ export const gameDataSchema = z.object({
   materials: z.array(materialSchema).default([]),
   items: z.array(itemSchema).default([]),
   affixes: z.array(affixSchema).default([]),
-  quests: z.array(questSchema).default([]),
+  quests: z.array(questSchemaCompat).default([]),
 })
 export type GameData = z.infer<typeof gameDataSchema>
 

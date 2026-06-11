@@ -6,8 +6,12 @@ import {
   ITEM_SLOT_LABELS,
   QUEST_TYPES,
   QUEST_TYPE_LABELS,
+  type Affix,
+  type Item,
+  type Material,
   type Objective,
   type Quest,
+  type QuestReward,
   type QuestType,
   defaultObjective,
 } from '../types/model'
@@ -18,13 +22,10 @@ import {
   Field,
   Modal,
   NumberInput,
-  SegmentedControl,
   Select,
   TextArea,
   TextInput,
 } from './ui'
-
-type RewardKind = 'none' | 'item' | 'material'
 
 export function QuestsTab() {
   const quests = useStore((s) => s.quests)
@@ -101,76 +102,26 @@ function QuestForm({ initial, onClose }: { initial: Quest | null; onClose: () =>
     initial?.dependsOnQuestId ?? '',
   )
   const [rewardExp, setRewardExp] = useState(initial?.rewardExp ?? 0)
-  const [rewardItemId, setRewardItemId] = useState<string | null>(initial?.rewardItemId ?? null)
-  const [rewardMaterialId, setRewardMaterialId] = useState<string | null>(
-    initial?.rewardMaterialId ?? null,
-  )
-  const [rewardPrefixId, setRewardPrefixId] = useState<string | null>(
-    initial?.rewardPrefixId ?? null,
-  )
-  const [rewardSuffixId, setRewardSuffixId] = useState<string | null>(
-    initial?.rewardSuffixId ?? null,
-  )
-  const [rewardQuantity, setRewardQuantity] = useState(initial?.rewardQuantity ?? 1)
-  const [rewardKind, setRewardKind] = useState<RewardKind>(
-    initial?.rewardItemId ? 'item' : initial?.rewardMaterialId ? 'material' : 'none',
-  )
+  const [rewards, setRewards] = useState<QuestReward[]>(initial?.rewards ?? [])
 
-  // Ödül türü değişince diğer referansları temizle (ödül ya item ya materyal).
-  const changeRewardKind = (k: RewardKind) => {
-    setRewardKind(k)
-    if (k !== 'item') {
-      setRewardItemId(null)
-      setRewardPrefixId(null)
-      setRewardSuffixId(null)
-    }
-    if (k !== 'material') setRewardMaterialId(null)
-  }
+  const updateReward = (i: number, reward: QuestReward) =>
+    setRewards((prev) => prev.map((r, idx) => (idx === i ? reward : r)))
+  const removeReward = (i: number) =>
+    setRewards((prev) => prev.filter((_, idx) => idx !== i))
+  const addItemReward = () =>
+    setRewards((prev) => [
+      ...prev,
+      { kind: 'item', itemId: '', prefixId: null, suffixId: null, quantity: 1 },
+    ])
+  const addMaterialReward = () =>
+    setRewards((prev) => [...prev, { kind: 'material', materialId: '', quantity: 1 }])
 
-  // Ödül item'ı değişince, item'ın seviyesiyle uyuşmayan ekleri temizle.
-  const onRewardItemChange = (newId: string | null) => {
-    setRewardItemId(newId)
-    const lvl = items.find((it) => it.id === newId)?.level ?? null
-    if (rewardPrefixId && affixes.find((a) => a.id === rewardPrefixId)?.level !== lvl) {
-      setRewardPrefixId(null)
-    }
-    if (rewardSuffixId && affixes.find((a) => a.id === rewardSuffixId)?.level !== lvl) {
-      setRewardSuffixId(null)
-    }
-  }
-  const rewardKindOptions: { value: RewardKind; label: string }[] = [
-    { value: 'none', label: 'Yok' },
-    { value: 'item', label: 'Item' },
-    { value: 'material', label: 'Materyal' },
-  ]
   const [objective, setObjective] = useState<Objective>(
     initial?.objective ?? defaultObjective('TALK_TO_NPC'),
   )
 
   // Bağımlılık seçiminde kendisini ve döngü oluşturmamak için sadece diğer görevler.
   const dependencyOptions = quests.filter((q) => q.id !== id)
-
-  // Ödül item'ı ve seviye-eşleşen ek seçenekleri.
-  const rewardItem = items.find((it) => it.id === rewardItemId) ?? null
-  const itemLevel = rewardItem?.level ?? null
-  const prefixOptions = affixes.filter((a) => a.kind === 'prefix' && a.level === itemLevel)
-  const suffixOptions = affixes.filter((a) => a.kind === 'suffix' && a.level === itemLevel)
-  const composedRewardName = [
-    affixes.find((a) => a.id === rewardPrefixId)?.name,
-    affixes.find((a) => a.id === rewardSuffixId)?.name,
-    rewardItem?.name,
-  ]
-    .filter(Boolean)
-    .join(' ')
-
-  // Efsun (ek) sayısına göre önizleme rengi: tek efsun mavi, çift efsun sarı.
-  const rewardAffixCount = (rewardPrefixId ? 1 : 0) + (rewardSuffixId ? 1 : 0)
-  const rewardNameColor =
-    rewardAffixCount === 2
-      ? 'text-yellow-300'
-      : rewardAffixCount === 1
-        ? 'text-sky-300'
-        : 'text-slate-200'
 
   const save = () => {
     if (!title.trim()) {
@@ -185,11 +136,7 @@ function QuestForm({ initial, onClose }: { initial: Quest | null; onClose: () =>
       requiredLevel,
       dependsOnQuestId: dependsOnQuestId || null,
       rewardExp,
-      rewardItemId,
-      rewardMaterialId,
-      rewardPrefixId,
-      rewardSuffixId,
-      rewardQuantity,
+      rewards: rewards.filter((r) => (r.kind === 'item' ? r.itemId : r.materialId)),
       objective,
     }
     if (initial) updateQuest(quest)
@@ -247,94 +194,27 @@ function QuestForm({ initial, onClose }: { initial: Quest | null; onClose: () =>
           </Field>
         </div>
 
-        <Field label="Ödül" hint="Item ya da materyal verilebilir (ikisi birden değil).">
-          <SegmentedControl
-            value={rewardKind}
-            onChange={changeRewardKind}
-            options={rewardKindOptions}
-          />
-        </Field>
-
-        {rewardKind === 'item' && (
-          <Combobox
-            value={rewardItemId}
-            onChange={onRewardItemChange}
-            options={items.map((it) => ({
-              value: it.id,
-              label: it.name,
-              hint: `${ITEM_SLOT_LABELS[it.slot]} · Lv ${it.level}`,
-            }))}
-            placeholder="— item seç —"
-            noneLabel="— item seç —"
-            searchPlaceholder="Item ara..."
-            emptyText="Item bulunamadı"
-          />
-        )}
-
-        {rewardKind === 'item' && rewardItemId && (
-          <>
-            <Field label="Ön ek" hint={`Yalnızca Lv ${itemLevel} ön ekler (item ile aynı seviye).`}>
-              <Combobox
-                value={rewardPrefixId}
-                onChange={setRewardPrefixId}
-                options={prefixOptions.map((a) => ({ value: a.id, label: a.name }))}
-                placeholder="— ön ek yok —"
-                noneLabel="— ön ek yok —"
-                searchPlaceholder="Ön ek ara..."
-                emptyText={`Lv ${itemLevel} ön ek yok`}
-              />
-            </Field>
-            <Field label="Son ek" hint={`Yalnızca Lv ${itemLevel} son ekler.`}>
-              <Combobox
-                value={rewardSuffixId}
-                onChange={setRewardSuffixId}
-                options={suffixOptions.map((a) => ({ value: a.id, label: a.name }))}
-                placeholder="— son ek yok —"
-                noneLabel="— son ek yok —"
-                searchPlaceholder="Son ek ara..."
-                emptyText={`Lv ${itemLevel} son ek yok`}
-              />
-            </Field>
-          </>
-        )}
-
-        {rewardKind === 'material' && (
-          <Combobox
-            value={rewardMaterialId}
-            onChange={setRewardMaterialId}
-            options={materials.map((m) => ({
-              value: m.id,
-              label: m.name,
-              hint: `Lv ${m.level}`,
-            }))}
-            placeholder="— materyal seç —"
-            noneLabel="— materyal seç —"
-            searchPlaceholder="Materyal ara..."
-            emptyText="Materyal bulunamadı"
-          />
-        )}
-
-        {(rewardItemId || rewardMaterialId) && (
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-slate-400">Ödül adedi</span>
-            <div className="w-24">
-              <NumberInput
-                min={1}
-                value={rewardQuantity}
-                onChange={(e) => setRewardQuantity(Number(e.target.value))}
-              />
-            </div>
+        <div className="flex flex-col gap-2">
+          <span className="text-sm font-medium text-slate-300">Ödüller (item / materyal)</span>
+          {rewards.map((r, i) => (
+            <RewardRow
+              key={i}
+              reward={r}
+              onChange={(nr) => updateReward(i, nr)}
+              onRemove={() => removeReward(i)}
+              items={items}
+              materials={materials}
+              affixes={affixes}
+            />
+          ))}
+          <div className="flex gap-2">
+            <Button onClick={addItemReward}>+ Item ödülü</Button>
+            <Button onClick={addMaterialReward}>+ Materyal ödülü</Button>
           </div>
-        )}
-
-        {rewardKind === 'item' && rewardItemId && (
-          <div className="rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-2">
-            <div className="text-xs text-slate-500">Ödül</div>
-            <div className={`text-sm ${rewardNameColor}`}>
-              {composedRewardName} ×{rewardQuantity}
-            </div>
-          </div>
-        )}
+          {items.length === 0 && materials.length === 0 && (
+            <p className="text-xs text-slate-500">Önce Item veya Materyal eklemelisin.</p>
+          )}
+        </div>
 
         <Field label="Bağımlı olduğu görev" hint="Bu görev, seçilen görev tamamlanmadan alınamaz.">
           <Select value={dependsOnQuestId} onChange={(e) => setDependsOnQuestId(e.target.value)}>
@@ -373,6 +253,141 @@ function QuestForm({ initial, onClose }: { initial: Quest | null; onClose: () =>
         <p className="text-xs text-slate-500">id: {id}</p>
       </div>
     </Modal>
+  )
+}
+
+function QuantityRow({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-sm text-slate-400">Adet</span>
+      <div className="w-24">
+        <NumberInput min={1} value={value} onChange={(e) => onChange(Number(e.target.value))} />
+      </div>
+    </div>
+  )
+}
+
+function RewardRow({
+  reward,
+  onChange,
+  onRemove,
+  items,
+  materials,
+  affixes,
+}: {
+  reward: QuestReward
+  onChange: (reward: QuestReward) => void
+  onRemove: () => void
+  items: Item[]
+  materials: Material[]
+  affixes: Affix[]
+}) {
+  if (reward.kind === 'material') {
+    return (
+      <div className="flex flex-col gap-2 rounded-lg border border-slate-800 p-2">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-medium text-slate-400">Materyal ödülü</span>
+          <Button variant="danger" onClick={onRemove}>
+            Kaldır
+          </Button>
+        </div>
+        <Combobox
+          value={reward.materialId || null}
+          onChange={(v) => onChange({ ...reward, materialId: v ?? '' })}
+          options={materials.map((m) => ({ value: m.id, label: m.name, hint: `Lv ${m.level}` }))}
+          placeholder="— materyal seç —"
+          noneLabel="— materyal seç —"
+          searchPlaceholder="Materyal ara..."
+          emptyText="Materyal bulunamadı"
+        />
+        <QuantityRow value={reward.quantity} onChange={(q) => onChange({ ...reward, quantity: q })} />
+      </div>
+    )
+  }
+
+  // Item ödülü
+  const item = items.find((it) => it.id === reward.itemId) ?? null
+  const itemLevel = item?.level ?? null
+  const prefixOptions = affixes.filter((a) => a.kind === 'prefix' && a.level === itemLevel)
+  const suffixOptions = affixes.filter((a) => a.kind === 'suffix' && a.level === itemLevel)
+  const composed = [
+    affixes.find((a) => a.id === reward.prefixId)?.name,
+    affixes.find((a) => a.id === reward.suffixId)?.name,
+    item?.name,
+  ]
+    .filter(Boolean)
+    .join(' ')
+  const affixCount = (reward.prefixId ? 1 : 0) + (reward.suffixId ? 1 : 0)
+  const nameColor =
+    affixCount === 2 ? 'text-yellow-300' : affixCount === 1 ? 'text-sky-300' : 'text-slate-200'
+
+  // Item değişince, seviyesi uyuşmayan ekleri temizle.
+  const onItemChange = (newId: string | null) => {
+    const lvl = items.find((it) => it.id === newId)?.level ?? null
+    const next = { ...reward, itemId: newId ?? '' }
+    if (next.prefixId && affixes.find((a) => a.id === next.prefixId)?.level !== lvl) {
+      next.prefixId = null
+    }
+    if (next.suffixId && affixes.find((a) => a.id === next.suffixId)?.level !== lvl) {
+      next.suffixId = null
+    }
+    onChange(next)
+  }
+
+  return (
+    <div className="flex flex-col gap-2 rounded-lg border border-slate-800 p-2">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-medium text-slate-400">Item ödülü</span>
+        <Button variant="danger" onClick={onRemove}>
+          Kaldır
+        </Button>
+      </div>
+      <Combobox
+        value={reward.itemId || null}
+        onChange={onItemChange}
+        options={items.map((it) => ({
+          value: it.id,
+          label: it.name,
+          hint: `${ITEM_SLOT_LABELS[it.slot]} · Lv ${it.level}`,
+        }))}
+        placeholder="— item seç —"
+        noneLabel="— item seç —"
+        searchPlaceholder="Item ara..."
+        emptyText="Item bulunamadı"
+      />
+      {reward.itemId && (
+        <>
+          <Field label="Ön ek" hint={`Yalnızca Lv ${itemLevel} ön ekler.`}>
+            <Combobox
+              value={reward.prefixId}
+              onChange={(v) => onChange({ ...reward, prefixId: v })}
+              options={prefixOptions.map((a) => ({ value: a.id, label: a.name }))}
+              placeholder="— ön ek yok —"
+              noneLabel="— ön ek yok —"
+              searchPlaceholder="Ön ek ara..."
+              emptyText={`Lv ${itemLevel} ön ek yok`}
+            />
+          </Field>
+          <Field label="Son ek" hint={`Yalnızca Lv ${itemLevel} son ekler.`}>
+            <Combobox
+              value={reward.suffixId}
+              onChange={(v) => onChange({ ...reward, suffixId: v })}
+              options={suffixOptions.map((a) => ({ value: a.id, label: a.name }))}
+              placeholder="— son ek yok —"
+              noneLabel="— son ek yok —"
+              searchPlaceholder="Son ek ara..."
+              emptyText={`Lv ${itemLevel} son ek yok`}
+            />
+          </Field>
+        </>
+      )}
+      <QuantityRow value={reward.quantity} onChange={(q) => onChange({ ...reward, quantity: q })} />
+      {reward.itemId && (
+        <div className={`text-sm ${nameColor}`}>
+          {composed} ×{reward.quantity}
+        </div>
+      )}
+    </div>
   )
 }
 
