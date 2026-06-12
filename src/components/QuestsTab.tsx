@@ -117,18 +117,26 @@ function QuestForm({ initial, onClose }: { initial: Quest | null; onClose: () =>
   )
   const [rewardExp, setRewardExp] = useState(initial?.rewardExp ?? 0)
   const [rewards, setRewards] = useState<QuestReward[]>(initial?.rewards ?? [])
+  // Açık olan ödül panelinin index'i; null = hepsi kapalı. Yeni eklenen otomatik açılır.
+  const [openReward, setOpenReward] = useState<number | null>(null)
 
   const updateReward = (i: number, reward: QuestReward) =>
     setRewards((prev) => prev.map((r, idx) => (idx === i ? reward : r)))
-  const removeReward = (i: number) =>
+  const removeReward = (i: number) => {
     setRewards((prev) => prev.filter((_, idx) => idx !== i))
-  const addItemReward = () =>
+    setOpenReward((prev) => (prev === null || prev === i ? null : prev > i ? prev - 1 : prev))
+  }
+  const addItemReward = () => {
+    setOpenReward(rewards.length)
     setRewards((prev) => [
       ...prev,
       { kind: 'item', itemId: '', prefixId: null, suffixId: null, quantity: 1 },
     ])
-  const addMaterialReward = () =>
+  }
+  const addMaterialReward = () => {
+    setOpenReward(rewards.length)
     setRewards((prev) => [...prev, { kind: 'material', materialId: '', quantity: 1 }])
+  }
 
   const [objective, setObjective] = useState<Objective>(
     initial?.objective ?? defaultObjective('TALK_TO_NPC'),
@@ -215,6 +223,8 @@ function QuestForm({ initial, onClose }: { initial: Quest | null; onClose: () =>
             <RewardRow
               key={i}
               reward={r}
+              open={openReward === i}
+              onToggle={() => setOpenReward(openReward === i ? null : i)}
               onChange={(nr) => updateReward(i, nr)}
               onRemove={() => removeReward(i)}
               items={items}
@@ -284,6 +294,8 @@ function QuantityRow({ value, onChange }: { value: number; onChange: (v: number)
 
 function RewardRow({
   reward,
+  open,
+  onToggle,
   onChange,
   onRemove,
   items,
@@ -291,50 +303,111 @@ function RewardRow({
   affixes,
 }: {
   reward: QuestReward
+  open: boolean
+  onToggle: () => void
   onChange: (reward: QuestReward) => void
   onRemove: () => void
   items: Item[]
   materials: Material[]
   affixes: Affix[]
 }) {
+  // Başlıkta gösterilecek özet (kapalıyken tek görünen satır).
+  let summary = ''
+  let nameColor = 'text-slate-200'
+  const item = reward.kind === 'item' ? (items.find((it) => it.id === reward.itemId) ?? null) : null
   if (reward.kind === 'material') {
-    return (
-      <div className="flex flex-col gap-2 rounded-lg border border-slate-800 p-2">
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-medium text-slate-400">Materyal ödülü</span>
-          <Button variant="danger" onClick={onRemove}>
-            Kaldır
-          </Button>
-        </div>
-        <Combobox
-          value={reward.materialId || null}
-          onChange={(v) => onChange({ ...reward, materialId: v ?? '' })}
-          options={materials.map((m) => ({ value: m.id, label: m.name, hint: `Lv ${m.level}` }))}
-          placeholder="— materyal seç —"
-          noneLabel="— materyal seç —"
-          searchPlaceholder="Materyal ara..."
-          emptyText="Materyal bulunamadı"
-        />
-        <QuantityRow value={reward.quantity} onChange={(q) => onChange({ ...reward, quantity: q })} />
-      </div>
-    )
+    const mat = materials.find((m) => m.id === reward.materialId) ?? null
+    if (mat) summary = `${mat.name} ×${reward.quantity}`
+  } else if (item) {
+    const composed = [
+      affixes.find((a) => a.id === reward.prefixId)?.name,
+      affixes.find((a) => a.id === reward.suffixId)?.name,
+      item.name,
+    ]
+      .filter(Boolean)
+      .join(' ')
+    summary = `${composed} ×${reward.quantity}`
+    const affixCount = (reward.prefixId ? 1 : 0) + (reward.suffixId ? 1 : 0)
+    nameColor =
+      affixCount === 2 ? 'text-yellow-300' : affixCount === 1 ? 'text-sky-300' : 'text-slate-200'
   }
 
-  // Item ödülü
+  return (
+    <div className="rounded-lg border border-slate-800">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex min-h-11 w-full items-center gap-2 px-3 text-left"
+      >
+        <span className="shrink-0 rounded bg-slate-700 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-300">
+          {reward.kind === 'item' ? 'Item' : 'Materyal'}
+        </span>
+        <span
+          className={`min-w-0 flex-1 truncate text-sm ${summary ? nameColor : 'text-slate-500'}`}
+        >
+          {summary || (reward.kind === 'item' ? 'Item seç…' : 'Materyal seç…')}
+        </span>
+        <span className="shrink-0 text-slate-500">{open ? '▴' : '▾'}</span>
+      </button>
+
+      {open && (
+        <div className="flex flex-col gap-2 border-t border-slate-800 p-2">
+          {reward.kind === 'material' ? (
+            <MaterialRewardFields reward={reward} onChange={onChange} materials={materials} />
+          ) : (
+            <ItemRewardFields reward={reward} onChange={onChange} items={items} affixes={affixes} />
+          )}
+          <div className="flex justify-end">
+            <Button variant="danger" onClick={onRemove}>
+              Kaldır
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function MaterialRewardFields({
+  reward,
+  onChange,
+  materials,
+}: {
+  reward: Extract<QuestReward, { kind: 'material' }>
+  onChange: (reward: QuestReward) => void
+  materials: Material[]
+}) {
+  return (
+    <>
+      <Combobox
+        value={reward.materialId || null}
+        onChange={(v) => onChange({ ...reward, materialId: v ?? '' })}
+        options={materials.map((m) => ({ value: m.id, label: m.name, hint: `Lv ${m.level}` }))}
+        placeholder="— materyal seç —"
+        noneLabel="— materyal seç —"
+        searchPlaceholder="Materyal ara..."
+        emptyText="Materyal bulunamadı"
+      />
+      <QuantityRow value={reward.quantity} onChange={(q) => onChange({ ...reward, quantity: q })} />
+    </>
+  )
+}
+
+function ItemRewardFields({
+  reward,
+  onChange,
+  items,
+  affixes,
+}: {
+  reward: Extract<QuestReward, { kind: 'item' }>
+  onChange: (reward: QuestReward) => void
+  items: Item[]
+  affixes: Affix[]
+}) {
   const item = items.find((it) => it.id === reward.itemId) ?? null
   const itemLevel = item?.level ?? null
   const prefixOptions = affixes.filter((a) => affixKind(a) === 'prefix' && a.level === itemLevel)
   const suffixOptions = affixes.filter((a) => affixKind(a) === 'suffix' && a.level === itemLevel)
-  const composed = [
-    affixes.find((a) => a.id === reward.prefixId)?.name,
-    affixes.find((a) => a.id === reward.suffixId)?.name,
-    item?.name,
-  ]
-    .filter(Boolean)
-    .join(' ')
-  const affixCount = (reward.prefixId ? 1 : 0) + (reward.suffixId ? 1 : 0)
-  const nameColor =
-    affixCount === 2 ? 'text-yellow-300' : affixCount === 1 ? 'text-sky-300' : 'text-slate-200'
 
   // Item değişince, seviyesi uyuşmayan ekleri temizle.
   const onItemChange = (newId: string | null) => {
@@ -350,13 +423,7 @@ function RewardRow({
   }
 
   return (
-    <div className="flex flex-col gap-2 rounded-lg border border-slate-800 p-2">
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-medium text-slate-400">Item ödülü</span>
-        <Button variant="danger" onClick={onRemove}>
-          Kaldır
-        </Button>
-      </div>
+    <>
       <Combobox
         value={reward.itemId || null}
         onChange={onItemChange}
@@ -397,12 +464,7 @@ function RewardRow({
         </>
       )}
       <QuantityRow value={reward.quantity} onChange={(q) => onChange({ ...reward, quantity: q })} />
-      {reward.itemId && (
-        <div className={`text-sm ${nameColor}`}>
-          {composed} ×{reward.quantity}
-        </div>
-      )}
-    </div>
+    </>
   )
 }
 
