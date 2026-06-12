@@ -65,19 +65,24 @@ export function ItemsTab() {
 
       {items.length > 0 && (
         <>
-          <div className="flex gap-1.5 overflow-x-auto pb-1">
-            <SlotChip active={slotTab === 'all'} onClick={() => setSlotTab('all')}>
-              Tümü <span className="opacity-60">{filtered.length}</span>
-            </SlotChip>
-            {ITEM_SLOTS.map((slot) => {
-              const count = filtered.filter((it) => it.slot === slot).length
-              return (
-                <SlotChip key={slot} active={slotTab === slot} onClick={() => setSlotTab(slot)}>
-                  {ITEM_SLOT_ICONS[slot]} {ITEM_SLOT_LABELS[slot]}
-                  {count > 0 && <span className="opacity-60"> {count}</span>}
-                </SlotChip>
-              )
-            })}
+          <div className="grid grid-cols-4 gap-1.5">
+            <SlotChip
+              active={slotTab === 'all'}
+              onClick={() => setSlotTab('all')}
+              icon="🗂️"
+              label="Tümü"
+              count={filtered.length}
+            />
+            {ITEM_SLOTS.map((slot) => (
+              <SlotChip
+                key={slot}
+                active={slotTab === slot}
+                onClick={() => setSlotTab(slot)}
+                icon={ITEM_SLOT_ICONS[slot]}
+                label={ITEM_SLOT_LABELS[slot]}
+                count={filtered.filter((it) => it.slot === slot).length}
+              />
+            ))}
           </div>
 
           <div className="flex flex-col gap-2 sm:flex-row">
@@ -150,23 +155,31 @@ export function ItemsTab() {
 function SlotChip({
   active,
   onClick,
-  children,
+  icon,
+  label,
+  count,
 }: {
   active: boolean
   onClick: () => void
-  children: React.ReactNode
+  icon: string
+  label: string
+  count: number
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`shrink-0 whitespace-nowrap rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+      className={`flex flex-col items-center gap-0.5 rounded-lg border px-1 py-1.5 transition-colors ${
         active
           ? 'border-sky-500 bg-sky-500/15 text-sky-300'
           : 'border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700'
       }`}
     >
-      {children}
+      <span className="text-base leading-none">{icon}</span>
+      <span className="whitespace-nowrap text-[11px] font-medium">
+        {label}
+        {count > 0 && <span className="opacity-60"> {count}</span>}
+      </span>
     </button>
   )
 }
